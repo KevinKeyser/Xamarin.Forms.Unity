@@ -1,111 +1,157 @@
-﻿using System;
+using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
+using System.IO.IsolatedStorage;
+using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+
 using UnityEngine;
-using UnityEngine.Networking;
+
 using Xamarin.Forms.Internals;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class UnityPlatformServices : IPlatformServices
-	{
-		/*-----------------------------------------------------------------*/
-		#region Private Field
+    public class UnityPlatformServices : IPlatformServices
+    {
+        private static readonly MD5CryptoServiceProvider checksum = new MD5CryptoServiceProvider();
 
-		static readonly MD5CryptoServiceProvider _md5 = new MD5CryptoServiceProvider();
+        public bool IsInvokeRequired => Forms.MainThread.ManagedThreadId == Thread.CurrentThread.ManagedThreadId;
 
-		#endregion
+        public string RuntimePlatform => "Unity";
 
-		/*-----------------------------------------------------------------*/
-		#region Constructor
+        public void BeginInvokeOnMainThread(Action action)
+        {
+            SynchronizationContext.Current.Post(_ => action(), null);
+        }
 
-		public UnityPlatformServices()
-		{
-		}
+        public Ticker CreateTicker()
+        {
+            return new UnityTicker();
+        }
 
-		#endregion
+        public Assembly[] GetAssemblies()
+        {
+            return AppDomain.CurrentDomain.GetAssemblies();
+        }
 
-		/*-----------------------------------------------------------------*/
-		#region IPlatformServices
+        public string GetMD5Hash(string input)
+        {
+            int Hex(int value)
+            {
+                if (value < 10)
+                {
+                    return '0' + value;
+                }
 
-		public bool IsInvokeRequired => Forms.MainThread.ManagedThreadId == Thread.CurrentThread.ManagedThreadId;
+                return 'a' + value - 10;
+            }
 
-		public string RuntimePlatform => "Unity";
+            var bytes = checksum.ComputeHash(Encoding.UTF8.GetBytes(input));
+            var ret = new char[32];
 
-		public void BeginInvokeOnMainThread(Action action)
-		{
-			SynchronizationContext.Current.Post(_ => action(), null);
-		}
+            for (var i = 0; i < 16; i++)
+            {
+                ret[i * 2] = (char)Hex(bytes[i] >> 4);
+                ret[i * 2 + 1] = (char)Hex(bytes[i] & 0xf);
+            }
 
-		public Ticker CreateTicker()
-		{
-			return new UnityTicker();
-		}
+            return new string(ret);
+        }
 
-		public Assembly[] GetAssemblies()
-		{
-			return AppDomain.CurrentDomain.GetAssemblies();
-		}
 
-		public string GetMD5Hash(string input)
-		{
-			var bytes = _md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-			var sb = new StringBuilder();
-			foreach (var c in bytes)
-			{
-				sb.AppendFormat("{0:X2}", c);
-			}
-			return sb.ToString();
-		}
+        public double GetNamedSize(NamedSize size, Type targetElementType, bool useOldSizes)
+        {
+            switch (size)
+            {
+                case NamedSize.Micro:
+                    return 12;
+                
+                case NamedSize.Default: // Unity Defaults their Text/Buttons etc. to 14px
+                case NamedSize.Small:
+                    return 14;
+                
+                case NamedSize.Medium:
+                    return 17;
+                
+                case NamedSize.Large:
+                    return 22;
+                
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(size));
+            }
+        }
 
-		public double GetNamedSize(NamedSize size, Type targetElementType, bool useOldSizes)
-		{
-			return 10.0;
-		}
+        public Task<Stream> GetStreamAsync(Uri uri, CancellationToken cancellationToken)
+        {
+            var taskCompletionSource = new TaskCompletionSource<Stream>();
 
-		public Task<Stream> GetStreamAsync(Uri uri, CancellationToken cancellationToken)
-		{
-			return null;
-		}
+            try
+            {
+                var request = WebRequest.CreateHttp(uri);
 
-		public IIsolatedStorageFile GetUserStoreForApplication()
-		{
-			return new UnityIsolatedStorage();
-		}
+                request.BeginGetResponse(ar =>
+                {
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        taskCompletionSource.SetCanceled();
 
-		public void OpenUriAction(Uri uri)
-		{
-			throw new NotImplementedException();
-		}
+                        return;
+                    }
 
-		public void StartTimer(TimeSpan interval, Func<bool> callback)
-		{
-			Forms.Activity.StartCoroutine(TimerCoroutine((float)interval.TotalSeconds, callback));
-		}
+                    try
+                    {
+                        var stream = request.EndGetResponse(ar).GetResponseStream();
+                        taskCompletionSource.TrySetResult(stream);
+                    }
+                    catch (Exception ex)
+                    {
+                        taskCompletionSource.TrySetException(ex);
+                    }
+                }, null);
+            }
+            catch (Exception ex)
+            {
+                taskCompletionSource.TrySetException(ex);
+            }
 
-		IEnumerator TimerCoroutine(float seconds, Func<bool> callback)
-		{
-			while (true)
-			{
-				yield return new WaitForSeconds(seconds);
-				if (callback() == false)
-				{
-					break;
-				}
-			}
-		}
+            return taskCompletionSource.Task;
+        }
 
-		public void QuitApplication()
-		{
-			UnityEngine.Application.Quit();
-		}
+        public IIsolatedStorageFile GetUserStoreForApplication()
+        {
+            return new UnityIsolatedStorageFile(IsolatedStorageFile.GetUserStoreForAssembly());
+        }
 
-		#endregion
-	}
+        public void OpenUriAction(Uri uri)
+        {
+            if (!uri.IsAbsoluteUri)
+            {
+                return;
+            }
+
+            UnityEngine.Application.OpenURL(uri.AbsoluteUri);
+        }
+
+        public void StartTimer(TimeSpan interval, Func<bool> callback)
+        {
+            CoroutineManager.Instance.StartCoroutine(TimerCoroutine((float)interval.TotalSeconds, callback));
+        }
+
+        private static IEnumerator TimerCoroutine(float secondsInterval, Func<bool> callback)
+        {
+            do
+            {
+                yield return new WaitForSeconds(secondsInterval);
+            } while (!callback());
+        }
+        
+        public void QuitApplication()
+        {
+            UnityEngine.Application.Quit();
+        }
+    }
 }

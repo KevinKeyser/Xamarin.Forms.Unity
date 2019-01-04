@@ -31,11 +31,11 @@ namespace Xamarin.Forms.Platform.Unity
                 return;
             }
 
-            coroutine = TimerCorutine();
+            coroutine = TimerCoroutine();
             CoroutineManager.Instance.StartCoroutine(coroutine);
         }
 
-        private IEnumerator TimerCorutine()
+        private IEnumerator TimerCoroutine()
         {
             while (true)
             {
