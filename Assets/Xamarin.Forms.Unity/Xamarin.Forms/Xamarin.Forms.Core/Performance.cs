@@ -1,95 +1,78 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Text;
+using System;
+using System.Threading;
 
 namespace Xamarin.Forms.Internals
 {
 	[EditorBrowsable(EditorBrowsableState.Never)]
-	public static class Performance
+	public interface IPerformanceProvider
 	{
-		static readonly Dictionary<string, Stats> Statistics = new Dictionary<string, Stats>();
+		void Stop(string reference, string tag, string path, string member);
 
-		[Conditional("PERF")]
-		public static void Clear()
+		void Start(string reference, string tag, string path, string member);
+	}
+
+	[EditorBrowsable(EditorBrowsableState.Never)]
+	public class Performance
+	{
+		static long Reference;
+
+		public static IPerformanceProvider Provider { get; private set; }
+
+		public static void SetProvider(IPerformanceProvider instance)
 		{
-			Statistics.Clear();
+			Provider = instance;
 		}
 
-		public static void Count(string tag = null, [CallerFilePath] string path = null, [CallerMemberName] string member = null)
+		public static void Start(out string reference, string tag = null, [CallerFilePath] string path = null, [CallerMemberName] string member = null)
 		{
-			string id = path + ":" + member + (tag != null ? "-" + tag : string.Empty);
-
-			Stats stats;
-			if (!Statistics.TryGetValue(id, out stats))
-				Statistics[id] = stats = new Stats();
-
-			stats.CallCount++;
-		}
-
-		[Conditional("PERF")]
-		public static void DumpStats()
-		{
-			Debug.WriteLine(GetStats());
-		}
-
-		public static string GetStats()
-		{
-			var b = new StringBuilder();
-			b.AppendLine("ID                                                                                 | Call Count | Total Time | Avg Time");
-			foreach (KeyValuePair<string, Stats> kvp in Statistics.OrderBy(kvp => kvp.Key))
+			if (Provider == null)
 			{
-				string key = ShortenPath(kvp.Key);
-				double total = TimeSpan.FromTicks(kvp.Value.TotalTime).TotalMilliseconds;
-				double avg = total / kvp.Value.CallCount;
-				b.AppendFormat("{0,-80} | {1,-10} | {2,-10}ms | {3,-8}ms", key, kvp.Value.CallCount, total, avg);
-				b.AppendLine();
+				reference = String.Empty;
+				return;
 			}
-			return b.ToString();
+
+			reference = Interlocked.Increment(ref Reference).ToString();
+			Provider.Start(reference, tag, path, member);
 		}
 
-		[Conditional("PERF")]
-		public static void Start(string tag = null, [CallerFilePath] string path = null, [CallerMemberName] string member = null)
+		public static void Start(string reference, string tag = null, [CallerFilePath] string path = null,
+			[CallerMemberName] string member = null)
 		{
-			string id = path + ":" + member + (tag != null ? "-" + tag : string.Empty);
-
-			Stats stats;
-			if (!Statistics.TryGetValue(id, out stats))
-				Statistics[id] = stats = new Stats();
-
-			stats.CallCount++;
-			stats.StartTimes.Push(Stopwatch.GetTimestamp());
+			Provider?.Start(reference, tag, path, member);
 		}
 
-		[Conditional("PERF")]
-		public static void Stop(string tag = null, [CallerFilePath] string path = null, [CallerMemberName] string member = null)
+		public static void Stop(string reference, string tag = null, [CallerFilePath] string path = null, [CallerMemberName] string member = null)
 		{
-			string id = path + ":" + member + (tag != null ? "-" + tag : string.Empty);
-			long stop = Stopwatch.GetTimestamp();
-
-			Stats stats = Statistics[id];
-			long start = stats.StartTimes.Pop();
-			if (!stats.StartTimes.Any())
-				stats.TotalTime += stop - start;
+			Provider?.Stop(reference, tag, path, member);
 		}
 
-		static string ShortenPath(string path)
+		internal static IDisposable StartNew(string tag = null, [CallerFilePath] string path = null, [CallerMemberName] string member = null)
 		{
-			int index = path.IndexOf("Xamarin.Forms.");
-			if (index > -1)
-				path = path.Substring(index + 14);
-
-			return path;
+			return new DisposablePerformanceReference(tag, path, member);
 		}
 
-		class Stats
+		class DisposablePerformanceReference : IDisposable
 		{
-			public readonly Stack<long> StartTimes = new Stack<long>();
-			public int CallCount;
-			public long TotalTime;
+			string _reference;
+			string _tag;
+			string _path;
+			string _member;
+
+			public DisposablePerformanceReference(string tag, string path, string member)
+			{
+				_tag = tag;
+				_path = path;
+				_member = member;
+				Start(out string reference, _tag, _path, _member);
+				_reference = reference;
+			}
+
+			public void Dispose()
+			{
+				Stop(_reference, _tag, _path, _member);
+			}
 		}
 	}
 }

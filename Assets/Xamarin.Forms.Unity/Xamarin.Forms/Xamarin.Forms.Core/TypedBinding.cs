@@ -63,10 +63,7 @@ namespace Xamarin.Forms.Internals
 
 		public TypedBinding(Func<TSource, TProperty> getter, Action<TSource, TProperty> setter, Tuple<Func<TSource, object>, string> [] handlers)
 		{
-			if (getter == null)
-				throw new ArgumentNullException(nameof(getter));
-
-			_getter = getter;
+			_getter = getter ?? throw new ArgumentNullException(nameof(getter));
 			_setter = setter;
 
 			if (handlers == null)
@@ -102,14 +99,18 @@ namespace Xamarin.Forms.Internals
 		}
 
 		// Applies the binding to a new source or target.
-		internal override void Apply(object context, BindableObject bindObj, BindableProperty targetProperty)
+		internal override void Apply(object context, BindableObject bindObj, BindableProperty targetProperty, bool fromBindingContextChanged = false)
 		{
 			_targetProperty = targetProperty;
 			var source = Source ?? Context ?? context;
+			var isApplied = IsApplied;
 
+			if (Source != null && isApplied && fromBindingContextChanged)
+				return;
+
+			base.Apply(source, bindObj, targetProperty, fromBindingContextChanged);
+			
 #if (!DO_NOT_CHECK_FOR_BINDING_REUSE)
-			base.Apply(source, bindObj, targetProperty);
-
 			BindableObject prevTarget;
 			if (_weakTarget.TryGetTarget(out prevTarget) && !ReferenceEquals(prevTarget, bindObj))
 				throw new InvalidOperationException("Binding instances can not be reused");
@@ -162,10 +163,13 @@ namespace Xamarin.Forms.Internals
 			return value;
 		}
 
-		internal override void Unapply()
+		internal override void Unapply(bool fromBindingContextChanged = false)
 		{
+			if (Source != null && fromBindingContextChanged && IsApplied)
+				return;
+
 #if (!DO_NOT_CHECK_FOR_BINDING_REUSE)
-			base.Unapply();
+			base.Unapply(fromBindingContextChanged:fromBindingContextChanged);
 #endif
 			if (_handlers != null)
 				Unsubscribe();
@@ -183,16 +187,16 @@ namespace Xamarin.Forms.Internals
 		{
 			var isTSource = sourceObject != null && sourceObject is TSource;
 			var mode = this.GetRealizedMode(property);
-			if (mode == BindingMode.OneWay && fromTarget)
+			if ((mode == BindingMode.OneWay || mode == BindingMode.OneTime) && fromTarget)
 				return;
 
-			var needsGetter = (mode == BindingMode.TwoWay && !fromTarget) || mode == BindingMode.OneWay;
+			var needsGetter = (mode == BindingMode.TwoWay && !fromTarget) || mode == BindingMode.OneWay || mode == BindingMode.OneTime;
 
 			if (isTSource && (mode == BindingMode.OneWay || mode == BindingMode.TwoWay) && _handlers != null)
 				Subscribe((TSource)sourceObject);
 
 			if (needsGetter) {
-				var value = property.DefaultValue;
+				var value = FallbackValue ?? property.DefaultValue;
 				if (isTSource) {
 					try {
 						value = GetSourceValue(_getter((TSource)sourceObject), property.ReturnType);
@@ -242,7 +246,7 @@ namespace Xamarin.Forms.Internals
 			public BindingExpression.WeakPropertyChangedProxy Listener { get; }
 			WeakReference<INotifyPropertyChanged> _weakPart = new WeakReference<INotifyPropertyChanged>(null);
 			readonly BindingBase _binding;
-
+			PropertyChangedEventHandler handler;
 			public INotifyPropertyChanged Part {
 				get {
 					INotifyPropertyChanged target;
@@ -251,8 +255,15 @@ namespace Xamarin.Forms.Internals
 					return null;
 				} 
 				set {
+					if (Listener != null && Listener.Source.TryGetTarget(out var source) && ReferenceEquals(value, source))
+						//Already subscribed
+						return;
+
+					//clear out previous subscription
+					Listener?.Unsubscribe();
+
 					_weakPart.SetTarget(value);
-					Listener.SubscribeTo(value, OnPropertyChanged);
+					Listener.SubscribeTo(value, handler);
 				}
 			}
 
@@ -262,6 +273,8 @@ namespace Xamarin.Forms.Internals
 				PropertyName = propertyName;
 				_binding = binding;
 				Listener = new BindingExpression.WeakPropertyChangedProxy();
+				//avoid GC collection, keep a ref to the OnPropertyChanged handler
+				handler = new PropertyChangedEventHandler(OnPropertyChanged);
 			}
 
 			void OnPropertyChanged(object sender, PropertyChangedEventArgs e)

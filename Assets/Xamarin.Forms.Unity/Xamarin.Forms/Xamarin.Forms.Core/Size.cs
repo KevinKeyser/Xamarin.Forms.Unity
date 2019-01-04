@@ -6,6 +6,7 @@ using System.Globalization;
 namespace Xamarin.Forms
 {
 	[DebuggerDisplay("Width={Width}, Height={Height}")]
+	[TypeConverter(typeof(SizeTypeConverter))]
 	public struct Size
 	{
 		double _width;
@@ -105,6 +106,12 @@ namespace Xamarin.Forms
 		public override string ToString()
 		{
 			return string.Format("{{Width={0} Height={1}}}", _width.ToString(CultureInfo.InvariantCulture), _height.ToString(CultureInfo.InvariantCulture));
+		}
+
+		public void Deconstruct(out double width, out double height)
+		{
+			width = Width;
+			height = Height;
 		}
 	}
 }

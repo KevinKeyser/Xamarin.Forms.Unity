@@ -16,7 +16,7 @@ namespace Xamarin.Forms
 		public static readonly BindableProperty UriProperty = BindableProperty.Create("Uri", typeof(Uri), typeof(UriImageSource), default(Uri),
 			propertyChanged: (bindable, oldvalue, newvalue) => ((UriImageSource)bindable).OnUriChanged(), validateValue: (bindable, value) => value == null || ((Uri)value).IsAbsoluteUri);
 
-		static readonly IIsolatedStorageFile Store = Device.PlatformServices.GetUserStoreForApplication();
+		static readonly Xamarin.Forms.Internals.IIsolatedStorageFile Store = Device.PlatformServices.GetUserStoreForApplication();
 
 		static readonly object s_syncHandle = new object();
 		static readonly Dictionary<string, LockingSemaphore> s_semaphores = new Dictionary<string, LockingSemaphore>();
@@ -85,7 +85,7 @@ namespace Xamarin.Forms
 			}
 			catch (Exception ex)
 			{
-				Log.Warning("Image Loading", $"Error getting stream for {Uri}: {ex}");
+				Xamarin.Forms.Internals.Log.Warning("Image Loading", $"Error getting stream for {Uri}: {ex}");
 				throw;
 			}
 
@@ -131,7 +131,7 @@ namespace Xamarin.Forms
 				}
 				catch (Exception ex) 
 				{
-					Log.Warning("Image Loading", $"Error getting stream for {Uri}: {ex}");
+					Xamarin.Forms.Internals.Log.Warning("Image Loading", $"Error getting stream for {Uri}: {ex}");
 					stream = null;
 				}
 			}
@@ -150,7 +150,7 @@ namespace Xamarin.Forms
 					int backoff;
 					try
 					{
-						Stream result = await Store.OpenFileAsync(Path.Combine(CacheName, key), Xamarin.Forms.Internals.FileMode.Open, Xamarin.Forms.Internals.FileAccess.Read).ConfigureAwait(false);
+						Stream result = await Store.OpenFileAsync(Path.Combine(CacheName, key), FileMode.Open, FileAccess.Read).ConfigureAwait(false);
 						return result;
 					}
 					catch (IOException)
@@ -181,14 +181,14 @@ namespace Xamarin.Forms
 				return null;
 			}
 
-			Stream writeStream = await Store.OpenFileAsync(Path.Combine(CacheName, key), Xamarin.Forms.Internals.FileMode.Create, Xamarin.Forms.Internals.FileAccess.Write).ConfigureAwait(false);
+			Stream writeStream = await Store.OpenFileAsync(Path.Combine(CacheName, key), FileMode.Create, FileAccess.Write).ConfigureAwait(false);
 			await stream.CopyToAsync(writeStream, 16384, cancellationToken).ConfigureAwait(false);
 			if (writeStream != null)
 				writeStream.Dispose();
 
 			stream.Dispose();
 
-			return await Store.OpenFileAsync(Path.Combine(CacheName, key), Xamarin.Forms.Internals.FileMode.Open, Xamarin.Forms.Internals.FileAccess.Read).ConfigureAwait(false);
+			return await Store.OpenFileAsync(Path.Combine(CacheName, key), FileMode.Open, FileAccess.Read).ConfigureAwait(false);
 		}
 
 		async Task<Stream> GetStreamFromCacheAsync(Uri uri, CancellationToken cancellationToken)

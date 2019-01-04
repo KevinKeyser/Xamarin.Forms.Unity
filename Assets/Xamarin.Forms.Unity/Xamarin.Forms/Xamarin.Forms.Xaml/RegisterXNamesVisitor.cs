@@ -1,21 +1,30 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Reflection;
+using System.Xml;
+using Xamarin.Forms.Internals;
+using Xamarin.Forms.Xaml.Internals;
 
 namespace Xamarin.Forms.Xaml
 {
-	internal class RegisterXNamesVisitor : IXamlNodeVisitor
+	class RegisterXNamesVisitor : IXamlNodeVisitor
 	{
 		public RegisterXNamesVisitor(HydrationContext context)
 		{
+			Context = context;
 			Values = context.Values;
 		}
 
 		Dictionary<INode, object> Values { get; }
-
+		HydrationContext Context { get; }
 		public TreeVisitingMode VisitingMode => TreeVisitingMode.TopDown;
 		public bool StopOnDataTemplate => true;
 		public bool StopOnResourceDictionary => false;
 		public bool VisitNodeOnDataTemplate => false;
+		public bool SkipChildren(INode node, INode parentNode) => false;
+		public bool IsResourceDictionary(ElementNode node) => typeof(ResourceDictionary).IsAssignableFrom(Context.Types[node]);
 
 		public void Visit(ValueNode node, INode parentNode)
 		{
@@ -31,6 +40,9 @@ namespace Xamarin.Forms.Xaml
 					throw ae;
 				throw new XamlParseException($"An element with the name \"{(string)node.Value}\" already exists in this NameScope", node);
 			}
+			var element = Values[parentNode] as Element;
+			if (element != null)
+				element.StyleId = element.StyleId ?? (string)node.Value;
 		}
 
 		public void Visit(MarkupNode node, INode parentNode)

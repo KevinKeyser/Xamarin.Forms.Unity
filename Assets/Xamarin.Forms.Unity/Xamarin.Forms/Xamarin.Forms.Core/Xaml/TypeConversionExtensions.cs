@@ -124,6 +124,7 @@ namespace Xamarin.Forms.Xaml
 					if (convertFromStringInvariant != null)
 						return value = convertFromStringInvariant.Invoke(converter, new object[] { str });
 				}
+				var ignoreCase = (serviceProvider?.GetService(typeof(IConverterOptions)) as IConverterOptions)?.IgnoreCase ?? false;
 
 				//If the type is nullable, as the value is not null, it's safe to assume we want the built-in conversion
 				if (toType.GetTypeInfo().IsGenericType && toType.GetGenericTypeDefinition() == typeof (Nullable<>))
@@ -131,7 +132,7 @@ namespace Xamarin.Forms.Xaml
 
 				//Obvious Built-in conversions
 				if (toType.GetTypeInfo().IsEnum)
-					return Enum.Parse(toType, str);
+					return Enum.Parse(toType, str, ignoreCase);
 				if (toType == typeof(SByte))
 					return SByte.Parse(str, CultureInfo.InvariantCulture);
 				if (toType == typeof(Int16))
@@ -171,8 +172,8 @@ namespace Xamarin.Forms.Xaml
 					return Decimal.Parse(str, CultureInfo.InvariantCulture);
 			}
 
-			//if there's an implicit conversion, convert
-			if (value != null) {
+			//if the value is not assignable and there's an implicit conversion, convert
+			if (value != null && !toType.IsAssignableFrom(value.GetType())) {
 				var opImplicit =   value.GetType().GetImplicitConversionOperator(fromType: value.GetType(), toType: toType)
 								?? toType.GetImplicitConversionOperator(fromType: value.GetType(), toType: toType);
 
@@ -193,6 +194,7 @@ namespace Xamarin.Forms.Xaml
 
 		internal static MethodInfo GetImplicitConversionOperator(this Type onType, Type fromType, Type toType)
 		{
+#if NETSTANDARD1_0
 			var mi = onType.GetRuntimeMethod("op_Implicit", new[] { fromType });
 			if (mi == null) return null;
 			if (!mi.IsSpecialName) return null;
@@ -200,7 +202,35 @@ namespace Xamarin.Forms.Xaml
 			if (!mi.IsStatic) return null;
 			if (!toType.IsAssignableFrom(mi.ReturnType)) return null;
 
-			return mi;
+			return mi;		
+#else
+			var bindingAttr = BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy;
+			IEnumerable<MethodInfo> mis = null;
+			try {
+				mis = new[] { onType.GetMethod("op_Implicit", bindingAttr, null, new[] { fromType }, null) };
+			} catch (AmbiguousMatchException) {
+				mis = new List<MethodInfo>();
+				foreach (var mi in onType.GetMethods(bindingAttr)) {
+					if (mi.Name != "op_Implicit") break;
+					var p = mi.GetParameters()?.FirstOrDefault();
+					if (p == null) continue;
+					if (!p.ParameterType.IsAssignableFrom(fromType)) continue;
+					((List<MethodInfo>)mis).Add(mi);
+				}
+			}
+
+			foreach (var mi in mis) {
+				if (mi == null) continue;
+				if (!mi.IsSpecialName) continue;
+				if (!mi.IsPublic) continue;
+				if (!mi.IsStatic) continue;
+				if (!toType.IsAssignableFrom(mi.ReturnType)) continue;
+
+				return mi;
+			}
+			return null;
+#endif
+
 		}
 	}
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Xml;
@@ -21,15 +22,30 @@ namespace Xamarin.Forms
 		{
 			if (Property == null)
 			{
-				var lineInfoProvider = serviceProvider.GetService(typeof(IXmlLineInfoProvider)) as IXmlLineInfoProvider;
-				IXmlLineInfo lineInfo = lineInfoProvider != null ? lineInfoProvider.XmlLineInfo : new XmlLineInfo();
+				IXmlLineInfo lineInfo = serviceProvider.GetService(typeof(IXmlLineInfoProvider)) is IXmlLineInfoProvider lineInfoProvider ? lineInfoProvider.XmlLineInfo : new XmlLineInfo();
 				throw new XamlParseException("Property not set", lineInfo);
 			}
 			var valueconverter = serviceProvider.GetService(typeof(IValueConverterProvider)) as IValueConverterProvider;
 
 			Func<MemberInfo> minforetriever =
 				() =>
-				(MemberInfo)Property.DeclaringType.GetRuntimeProperty(Property.PropertyName) ?? (MemberInfo)Property.DeclaringType.GetRuntimeMethod("Get" + Property.PropertyName, new[] { typeof(BindableObject) });
+				{
+					MemberInfo minfo = null;
+					try {
+						minfo = Property.DeclaringType.GetRuntimeProperty(Property.PropertyName);
+					} catch (AmbiguousMatchException e) {
+						IXmlLineInfo lineInfo = serviceProvider.GetService(typeof(IXmlLineInfoProvider)) is IXmlLineInfoProvider lineInfoProvider ? lineInfoProvider.XmlLineInfo : new XmlLineInfo();
+						throw new XamlParseException($"Multiple properties with name '{Property.DeclaringType}.{Property.PropertyName}' found.", lineInfo, innerException: e);
+					}
+					if (minfo != null)
+						return minfo;
+					try {
+						return Property.DeclaringType.GetRuntimeMethod("Get" + Property.PropertyName, new[] { typeof(BindableObject) });
+					} catch (AmbiguousMatchException e) {
+						IXmlLineInfo lineInfo = serviceProvider.GetService(typeof(IXmlLineInfoProvider)) is IXmlLineInfoProvider lineInfoProvider ? lineInfoProvider.XmlLineInfo : new XmlLineInfo();
+						throw new XamlParseException($"Multiple methods with name '{Property.DeclaringType}.Get{Property.PropertyName}' found.", lineInfo, innerException: e);
+					}
+				};
 
 			object value = valueconverter.Convert(Value, Property.ReturnType, minforetriever, serviceProvider);
 			Value = value;
@@ -39,7 +55,7 @@ namespace Xamarin.Forms
 		internal void Apply(BindableObject target, bool fromStyle = false)
 		{
 			if (target == null)
-				throw new ArgumentNullException("target");
+				throw new ArgumentNullException(nameof(target));
 			if (Property == null)
 				return;
 
@@ -57,7 +73,12 @@ namespace Xamarin.Forms
 			else if (dynamicResource != null)
 				target.SetDynamicResource(Property, dynamicResource.Key, fromStyle);
 			else
-				target.SetValue(Property, Value, fromStyle);
+			{
+				if (Value is IList<VisualStateGroup> visualStateGroupCollection)
+					target.SetValue(Property, visualStateGroupCollection.Clone(), fromStyle);
+				else
+					target.SetValue(Property, Value, fromStyle);
+			}
 		}
 
 		internal void UnApply(BindableObject target, bool fromStyle = false)

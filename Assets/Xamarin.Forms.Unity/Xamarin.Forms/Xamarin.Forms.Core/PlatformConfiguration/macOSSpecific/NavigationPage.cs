@@ -1,4 +1,4 @@
-namespace Xamarin.Forms.PlatformConfiguration.macOSSpecific
+﻿namespace Xamarin.Forms.PlatformConfiguration.macOSSpecific
 {
 	using FormsElement = Forms.NavigationPage;
 

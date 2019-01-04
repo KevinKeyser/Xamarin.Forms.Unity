@@ -138,7 +138,7 @@ namespace Xamarin.Forms.Xaml
 			if (!SkipVisitNode(visitor, parentNode) && visitor.VisitingMode == TreeVisitingMode.TopDown)
 				visitor.Visit(this, parentNode);
 
-			if (!SkipChildren(visitor, parentNode)) {
+			if (!SkipChildren(visitor, this, parentNode)) {
 				foreach (var node in Properties.Values.ToList())
 					node.Accept(visitor, this);
 				foreach (var node in CollectionItems)
@@ -161,11 +161,10 @@ namespace Xamarin.Forms.Xaml
 			return false;
 		}
 
-		bool IsResourceDictionary() => XmlType.Name == "ResourceDictionary";
-
-		protected bool SkipChildren(IXamlNodeVisitor visitor, INode parentNode) =>
-			(visitor.StopOnDataTemplate && IsDataTemplate(parentNode)) ||
-			(visitor.StopOnResourceDictionary && IsResourceDictionary());
+		protected bool SkipChildren(IXamlNodeVisitor visitor, INode node, INode parentNode) =>
+			   (visitor.StopOnDataTemplate && IsDataTemplate(parentNode))
+			|| (visitor.StopOnResourceDictionary && visitor.IsResourceDictionary(this))
+			|| visitor.SkipChildren(node, parentNode);
 
 		protected bool SkipVisitNode(IXamlNodeVisitor visitor, INode parentNode) =>
 			!visitor.VisitNodeOnDataTemplate && IsDataTemplate(parentNode);
@@ -196,7 +195,7 @@ namespace Xamarin.Forms.Xaml
 			if (!SkipVisitNode(visitor, parentNode) && visitor.VisitingMode == TreeVisitingMode.TopDown)
 				visitor.Visit(this, parentNode);
 
-			if (!SkipChildren(visitor, parentNode)) {
+			if (!SkipChildren(visitor, this, parentNode)) {
 				foreach (var node in Properties.Values.ToList())
 					node.Accept(visitor, this);
 				foreach (var node in CollectionItems)

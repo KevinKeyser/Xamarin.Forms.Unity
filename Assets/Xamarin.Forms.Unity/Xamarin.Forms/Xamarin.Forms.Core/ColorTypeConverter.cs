@@ -6,6 +6,7 @@ using Xamarin.Forms.Internals;
 namespace Xamarin.Forms
 {
 	[Xaml.ProvideCompiled("Xamarin.Forms.Core.XamlC.ColorTypeConverter")]
+	[Xaml.TypeConversion(typeof(Color))]
 	public class ColorTypeConverter : TypeConverter
 	{
 		// Supported inputs
@@ -155,6 +156,7 @@ namespace Xamarin.Forms
 					case "lightcoral": return Color.LightCoral;
 					case "lightcyan": return Color.LightCyan;
 					case "lightgoldenrodyellow": return Color.LightGoldenrodYellow;
+					case "lightgrey":
 					case "lightgray": return Color.LightGray;
 					case "lightgreen": return Color.LightGreen;
 					case "lightpink": return Color.LightPink;

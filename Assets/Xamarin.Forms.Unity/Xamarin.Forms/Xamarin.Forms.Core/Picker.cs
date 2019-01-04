@@ -11,7 +11,7 @@ using Xamarin.Forms.Platform;
 namespace Xamarin.Forms
 {
 	[RenderWith(typeof(_PickerRenderer))]
-	public class Picker : View, ITextElement, IElementConfiguration<Picker>
+	public class Picker : View, IFontElement, ITextElement, IElementConfiguration<Picker>
 	{
 		public static readonly BindableProperty TextColorProperty = TextElement.TextColorProperty;
 
@@ -30,6 +30,12 @@ namespace Xamarin.Forms
 			BindableProperty.Create(nameof(SelectedItem), typeof(object), typeof(Picker), null, BindingMode.TwoWay,
 									propertyChanged: OnSelectedItemChanged);
 
+		public static readonly BindableProperty FontFamilyProperty = FontElement.FontFamilyProperty;
+
+		public static readonly BindableProperty FontSizeProperty = FontElement.FontSizeProperty;
+
+		public static readonly BindableProperty FontAttributesProperty = FontElement.FontAttributesProperty;
+		
 		readonly Lazy<PlatformConfigurationRegistry<Picker>> _platformConfigurationRegistry;
 
 		public Picker()
@@ -37,6 +43,39 @@ namespace Xamarin.Forms
 			((INotifyCollectionChanged)Items).CollectionChanged += OnItemsCollectionChanged;
 			_platformConfigurationRegistry = new Lazy<PlatformConfigurationRegistry<Picker>>(() => new PlatformConfigurationRegistry<Picker>(this));
 		}
+		public FontAttributes FontAttributes
+		{
+			get { return (FontAttributes)GetValue(FontAttributesProperty); }
+			set { SetValue(FontAttributesProperty, value); }
+		}
+
+		public string FontFamily
+		{
+			get { return (string)GetValue(FontFamilyProperty); }
+			set { SetValue(FontFamilyProperty, value); }
+		}
+
+		[TypeConverter(typeof(FontSizeConverter))]
+		public double FontSize
+		{
+			get { return (double)GetValue(FontSizeProperty); }
+			set { SetValue(FontSizeProperty, value); }
+		}
+
+		void IFontElement.OnFontFamilyChanged(string oldValue, string newValue) =>
+			InvalidateMeasureInternal(InvalidationTrigger.MeasureChanged);
+
+		void IFontElement.OnFontSizeChanged(double oldValue, double newValue) =>
+			InvalidateMeasureInternal(InvalidationTrigger.MeasureChanged);
+
+		void IFontElement.OnFontChanged(Font oldValue, Font newValue) =>
+			InvalidateMeasureInternal(InvalidationTrigger.MeasureChanged);
+
+		double IFontElement.FontSizeDefaultValueCreator() =>
+			Device.GetNamedSize(NamedSize.Default, (Picker)this);
+
+		void IFontElement.OnFontAttributesChanged(FontAttributes oldValue, FontAttributes newValue) =>
+			InvalidateMeasureInternal(InvalidationTrigger.MeasureChanged);
 
 		public IList<string> Items { get; } = new LockableObservableListWrapper();
 
@@ -111,8 +150,11 @@ namespace Xamarin.Forms
 
 		void OnItemsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
 		{
-			SelectedIndex = SelectedIndex.Clamp(-1, Items.Count - 1);
-			UpdateSelectedItem();
+			var oldIndex = SelectedIndex;
+			var newIndex = SelectedIndex = SelectedIndex.Clamp(-1, Items.Count - 1);
+			// If the index has not changed, still need to change the selected item
+			if (newIndex == oldIndex)
+				UpdateSelectedItem(newIndex);
 		}
 
 		static void OnItemsSourceChanged(BindableObject bindable, object oldValue, object newValue)
@@ -175,13 +217,13 @@ namespace Xamarin.Forms
 			((LockableObservableListWrapper)Items).InternalClear();
 			foreach (object item in ItemsSource)
 				((LockableObservableListWrapper)Items).InternalAdd(GetDisplayMember(item));
-			UpdateSelectedItem();
+			UpdateSelectedItem(SelectedIndex);
 		}
 
 		static void OnSelectedIndexChanged(object bindable, object oldValue, object newValue)
 		{
 			var picker = (Picker)bindable;
-			picker.UpdateSelectedItem();
+			picker.UpdateSelectedItem(picker.SelectedIndex);
 			picker.SelectedIndexChanged?.Invoke(bindable, EventArgs.Empty);
 		}
 
@@ -200,19 +242,19 @@ namespace Xamarin.Forms
 			SelectedIndex = Items.IndexOf(selectedItem);
 		}
 
-		void UpdateSelectedItem()
+		void UpdateSelectedItem(int index)
 		{
-			if (SelectedIndex == -1) {
+			if (index == -1) {
 				SelectedItem = null;
 				return;
 			}
 
 			if (ItemsSource != null) {
-				SelectedItem = ItemsSource [SelectedIndex];
+				SelectedItem = ItemsSource [index];
 				return;
 			}
 
-			SelectedItem = Items [SelectedIndex];
+			SelectedItem = Items [index];
 		}
 
 		public IPlatformElementConfiguration<T, Picker> On<T>() where T : IConfigPlatform
