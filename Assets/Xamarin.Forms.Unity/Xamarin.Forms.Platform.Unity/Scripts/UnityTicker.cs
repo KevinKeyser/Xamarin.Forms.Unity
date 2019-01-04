@@ -1,63 +1,47 @@
-﻿using System;
+using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
-using Xamarin.Forms.Internals;
+
 using UnityEngine;
+
+using Xamarin.Forms.Internals;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class UnityTicker : Ticker
-	{
-		/*-----------------------------------------------------------------*/
-		#region Private Field
+    public class UnityTicker : Ticker
+    {
+        private IEnumerator coroutine = null;
 
-		IEnumerator _coroutine = null;
+        protected override void DisableTimer()
+        {
+            if (coroutine == null)
+            {
+                return;
+            }
 
-		#endregion
+            CoroutineManager.Instance.StopCoroutine(coroutine);
+            coroutine = null;
+        }
+        
+        protected override void EnableTimer()
+        {
+            if (coroutine != null)
+            {
+                return;
+            }
 
-		/*-----------------------------------------------------------------*/
-		#region Constructor
+            coroutine = TimerCorutine();
+            CoroutineManager.Instance.StartCoroutine(coroutine);
+        }
 
-		public UnityTicker()
-		{
-		}
-
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Ticker
-
-		protected override void DisableTimer()
-		{
-			if (_coroutine != null)
-			{
-				Forms.Activity.StopCoroutine(_coroutine);
-				_coroutine = null;
-			}
-		}
-
-		protected override void EnableTimer()
-		{
-			if (_coroutine == null)
-			{
-				_coroutine = TimerCorutine();
-				Forms.Activity.StartCoroutine(_coroutine);
-			}
-		}
-
-		IEnumerator TimerCorutine()
-		{
-			while (true)
-			{
-				yield return new WaitForSeconds(0.01f);
-				SendSignals();
-			}
-		}
-
-		#endregion
-
-	}
+        private IEnumerator TimerCorutine()
+        {
+            while (true)
+            {
+                yield return new WaitForSeconds(0.01f);
+                SendSignals();
+            }
+        }
+    }
 }
