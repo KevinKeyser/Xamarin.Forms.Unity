@@ -1,38 +1,39 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using Xamarin.Forms.Internals;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	internal sealed class UnityExpressionSearch : ExpressionVisitor, IExpressionSearch
-	{
-		List<object> _results;
-		Type _targetType;
+    internal sealed class UnityExpressionSearch : ExpressionVisitor, IExpressionSearch
+    {
+        private List<object> results;
+        private Type targetType;
 
-		public List<T> FindObjects<T>(Expression expression) where T : class
-		{
-			_results = new List<object>();
-			_targetType = typeof(T);
-			Visit(expression);
-			return _results.Select(o => o as T).ToList();
-		}
+        public List<T> FindObjects<T>(Expression expression) where T : class
+        {
+            results = new List<object>();
+            targetType = typeof(T);
+            Visit(expression);
+            return results.Select(o => o as T).ToList();
+        }
 
-		protected override Expression VisitMember(MemberExpression node)
-		{
-			if (node.Expression is ConstantExpression && node.Member is FieldInfo)
-			{
-				object container = ((ConstantExpression)node.Expression).Value;
-				object value = ((FieldInfo)node.Member).GetValue(container);
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            if (node.Expression is ConstantExpression constantExpression && 
+                node.Member is FieldInfo fieldInfo)
+            {
+                var container = constantExpression.Value;
+                var value = fieldInfo.GetValue(container);
 
-				if (_targetType.IsInstanceOfType(value))
-					_results.Add(value);
-			}
-			return base.VisitMember(node);
-		}
-	}
+                if (targetType.IsInstanceOfType(value))
+                {
+                    results.Add(value);
+                }
+            }
+            return base.VisitMember(node);
+        }
+    }
 }
