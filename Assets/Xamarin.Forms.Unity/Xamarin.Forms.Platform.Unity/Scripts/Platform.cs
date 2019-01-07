@@ -1,11 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Xamarin.Forms.Internals;
 using UnityEngine;
-using UniRx;
 
 namespace Xamarin.Forms.Platform.Unity
 {
@@ -15,8 +14,6 @@ namespace Xamarin.Forms.Platform.Unity
 		#region Private Field
 
 		PlatformRenderer _renderer;
-		UnityFormsApplicationActivity _activity;
-		Canvas _canvas;
 
 		Page _currentPage;
 		readonly NavigationModel _navModel = new NavigationModel();
@@ -26,20 +23,16 @@ namespace Xamarin.Forms.Platform.Unity
 		/*-----------------------------------------------------------------*/
 		#region Constructor / Dispose
 
-		internal Platform(UnityFormsApplicationActivity activity, Canvas canvas)
+		internal Platform(UnityFormsApplicationActivity activity)
 		{
-			_renderer = canvas.gameObject.AddComponent<PlatformRenderer>();
-			_activity = activity;
-			_canvas = canvas;
+			_renderer = new PlatformRenderer();
 
-			var rectTransform = _canvas.GetComponent<RectTransform>();
-
-			rectTransform.ObserveEveryValueChanged(x => new UniRx.Tuple<float, float>(x.rect.width, x.rect.height))
-				.Subscribe(_ =>
-				{
-					_currentPage?.Layout(ContainerBounds);
-				})
-				.AddTo(_canvas);
+			// _renderer.RectTransform.ObserveEveryValueChanged(x => new UniRx.Tuple<float, float>(x.rect.width, x.rect.height))
+			// 	.Subscribe(_ =>
+			// 	{
+			// 		_currentPage?.Layout(ContainerBounds);
+			// 	})
+			// 	.AddTo(_renderer.Canvas);
 		}
 
 		public void Dispose()
@@ -58,7 +51,7 @@ namespace Xamarin.Forms.Platform.Unity
 		{
 			get
 			{
-				var rt = _canvas?.GetComponent<RectTransform>();
+				var rt = _renderer.RectTransform;
 				if (rt != null)
 				{
 					return new Rectangle(0.0, 0.0, rt.rect.width, rt.rect.height);
@@ -118,7 +111,7 @@ namespace Xamarin.Forms.Platform.Unity
 			{
 				Page previousPage = _currentPage;
 				var previousRenderer = GetRenderer(previousPage);
-				previousRenderer.UnityRectTransform.SetParent(null);
+				previousRenderer.NativeElement.RectTransform.SetParent(null);
 
 				if (popping)
 					previousPage.Cleanup();
@@ -128,7 +121,7 @@ namespace Xamarin.Forms.Platform.Unity
 			//	(SetParent しても見栄えが変わらないように維持させるため)
 			//	先に SetParent してから Layout で補正する。
 			var pageRenderer = newPage.GetOrCreateRenderer();
-			pageRenderer.UnityRectTransform.SetParent(_canvas.transform);
+			pageRenderer.NativeElement.RectTransform.SetParent(_renderer.RectTransform);
 
 			newPage.Layout(ContainerBounds);
 
@@ -143,39 +136,6 @@ namespace Xamarin.Forms.Platform.Unity
 			//await UpdateToolbarItems();
 		}
 
-		static public UnityEngine.TextAnchor ToUnityTextAnchor(TextAlignment horizonatal, TextAlignment vertical)
-		{
-			switch (horizonatal)
-			{
-				case TextAlignment.Start:
-					switch (vertical)
-					{
-						case TextAlignment.Start: return TextAnchor.UpperLeft;
-						case TextAlignment.Center: return TextAnchor.MiddleLeft;
-						case TextAlignment.End: return TextAnchor.LowerLeft;
-					}
-					break;
-
-				case TextAlignment.Center:
-					switch (vertical)
-					{
-						case TextAlignment.Start: return TextAnchor.UpperCenter;
-						case TextAlignment.Center: return TextAnchor.MiddleCenter;
-						case TextAlignment.End: return TextAnchor.LowerCenter;
-					}
-					break;
-
-				case TextAlignment.End:
-					switch (vertical)
-					{
-						case TextAlignment.Start: return TextAnchor.UpperRight;
-						case TextAlignment.Center: return TextAnchor.MiddleRight;
-						case TextAlignment.End: return TextAnchor.LowerRight;
-					}
-					break;
-			}
-			return TextAnchor.MiddleCenter;
-		}
 
 
 		#endregion

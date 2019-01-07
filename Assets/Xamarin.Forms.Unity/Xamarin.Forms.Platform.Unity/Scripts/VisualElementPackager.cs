@@ -17,10 +17,7 @@ namespace Xamarin.Forms.Platform.Unity
 
 		public VisualElementPackager(IVisualElementRenderer renderer)
 		{
-			if (renderer == null)
-				throw new ArgumentNullException("renderer");
-
-			_renderer = renderer;
+			_renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
 		}
 
 		public VisualElementPackager(IVisualElementRenderer renderer, int row = 0, int rowSpan = 0, int column = 0, int columnSpan = 0) : this(renderer)
@@ -85,12 +82,8 @@ namespace Xamarin.Forms.Platform.Unity
 
 				IVisualElementRenderer childRenderer = Platform.GetRenderer(child);
 
-				if (childRenderer == null)
-				{
-					continue;
-				}
 				//Debug.Log(string.Format("EnsureZIndex: {0}[{1}] = {2}", this._renderer.UnityRectTransform.GetHashCode(), z, childRenderer.UnityRectTransform.GetHashCode()));
-				childRenderer.UnityRectTransform.SetSiblingIndex(z);
+				childRenderer?.NativeElement.RectTransform.SetSiblingIndex(z);
 			}
 		}
 
@@ -103,7 +96,7 @@ namespace Xamarin.Forms.Platform.Unity
 
 			IVisualElementRenderer childRenderer = Platform.CreateRenderer(view);
 			Platform.SetRenderer(view, childRenderer);
-			childRenderer.UnityRectTransform.SetParent(_renderer.UnityContainerTransform);
+			childRenderer.NativeElement.RectTransform.SetParent(_renderer.UnityContainerTransform);
 
 			EnsureZIndex();
 		}
@@ -118,7 +111,7 @@ namespace Xamarin.Forms.Platform.Unity
 			IVisualElementRenderer childRenderer = Platform.GetRenderer(view);
 			if (childRenderer != null)
 			{
-				childRenderer.UnityRectTransform.SetParent(null);
+				childRenderer.NativeElement.RectTransform.SetParent(null);
 
 				view.Cleanup();
 			}

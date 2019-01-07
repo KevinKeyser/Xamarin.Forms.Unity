@@ -19,7 +19,7 @@ namespace Xamarin.Forms.Platform.Unity
         {
             UpdateProperties();
         }
-        
+
         private void UpdateProperties()
         {
             var current = UnityEngine.Screen.currentResolution;
@@ -29,7 +29,7 @@ namespace Xamarin.Forms.Platform.Unity
             SetScaledScreenSize(new Size(current.width * dpi, current.height * dpi));
             SetScalingFactor(dpi);
         }
-        
+
         private void SetPixelScreenSize(Size value)
         {
             if (Equals(value, pixelScreenSize))

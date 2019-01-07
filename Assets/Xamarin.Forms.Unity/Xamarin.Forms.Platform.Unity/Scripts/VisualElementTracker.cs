@@ -14,61 +14,34 @@ namespace Xamarin.Forms.Platform.Unity
 		where TElement : VisualElement
 		where TNativeElement : NativeVisualElement
 	{
-		/*-----------------------------------------------------------------*/
-		#region Private Field
+		private readonly TNativeElement control;
+		private TElement element;
+		private bool invalidateArrangeNeeded;
 
-		TNativeElement _control;
-		TElement _element;
-		NativeVisualElement _behaviour;
-
-		bool _invalidateArrangeNeeded;
-
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Constructor
-
-		public VisualElementTracker(TNativeElement control, NativeVisualElement behaviour)
-		{
-			_control = control;
-			_behaviour = behaviour;
-
-			/*
-			_control.Tapped -= HandleTapped;
-			_control.DoubleTapped -= HandleDoubleTapped;
-			*/
-		}
-
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Property
-
-		public TNativeElement Control
-		{
-			get { return _control; }
-		}
-
+		public TNativeElement Control => control;
+		
 		public TElement Element
 		{
-			get { return _element; }
+			get => element;
 			set
 			{
-				if (_element == value)
-					return;
-
-				if (_element != null)
+				if (Equals(element, value))
 				{
-					_element.BatchCommitted -= OnRedrawNeeded;
-					_element.PropertyChanged -= OnPropertyChanged;
+					return;
 				}
 
-				_element = value;
-
-				if (_element != null)
+				if (element != null)
 				{
-					_element.BatchCommitted += OnRedrawNeeded;
-					_element.PropertyChanged += OnPropertyChanged;
+					element.BatchCommitted -= OnRedrawNeeded;
+					element.PropertyChanged -= OnPropertyChanged;
+				}
+
+				element = value;
+
+				if (element != null)
+				{
+					element.BatchCommitted += OnRedrawNeeded;
+					element.PropertyChanged += OnPropertyChanged;
 				}
 
 				UpdateNativeControl();
@@ -76,10 +49,13 @@ namespace Xamarin.Forms.Platform.Unity
 		}
 
 		public event EventHandler Updated;
+		
+		public VisualElementTracker(TElement element, TNativeElement control)
+		{
+			this.control = control;
+			Element = element;
+		}
 
-		#endregion
-
-		/*-----------------------------------------------------------------*/
 		#region Event Handler
 
 		protected virtual void OnPropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -93,7 +69,7 @@ namespace Xamarin.Forms.Platform.Unity
 					e.PropertyName == VisualElement.AnchorXProperty.PropertyName ||
 					e.PropertyName == VisualElement.AnchorYProperty.PropertyName)
 				{
-					_invalidateArrangeNeeded = true;
+					invalidateArrangeNeeded = true;
 				}
 				return;
 			}
@@ -109,7 +85,7 @@ namespace Xamarin.Forms.Platform.Unity
 			}
 			else if (e.PropertyName == VisualElement.ScaleProperty.PropertyName)
 			{
-				UpdateScale(Element, _behaviour.RectTransform);
+				UpdateScale(Element, Control);
 			}
 			else if (e.PropertyName == VisualElement.TranslationXProperty.PropertyName ||
 					 e.PropertyName == VisualElement.TranslationYProperty.PropertyName ||
@@ -117,19 +93,19 @@ namespace Xamarin.Forms.Platform.Unity
 					 e.PropertyName == VisualElement.RotationXProperty.PropertyName ||
 					 e.PropertyName == VisualElement.RotationYProperty.PropertyName)
 			{
-				UpdateRotation(Element, _behaviour.RectTransform);
+				UpdateRotation(Element, Control);
 			}
 			else if (e.PropertyName == VisualElement.IsVisibleProperty.PropertyName)
 			{
-				UpdateVisibility(Element, _behaviour.RectTransform);
+				UpdateVisibility(Element, Control);
 			}
 			else if (e.PropertyName == VisualElement.OpacityProperty.PropertyName)
 			{
-				UpdateOpacity(Element, _behaviour);
+				UpdateOpacity(Element, Control);
 			}
 			else if (e.PropertyName == VisualElement.InputTransparentProperty.PropertyName)
 			{
-				UpdateInputTransparent(Element, _behaviour.RectTransform);
+				UpdateInputTransparent(Element, Control);
 			}
 		}
 
@@ -140,56 +116,60 @@ namespace Xamarin.Forms.Platform.Unity
 
 		protected virtual void UpdateNativeControl()
 		{
-			if (Element == null || _behaviour == null)
+			if (Element == null || Control == null)
+			{
 				return;
+			}
 
-			UpdateVisibility(Element, _behaviour.RectTransform);
-			UpdateOpacity(Element, _behaviour);
-			UpdatePositionSizeAnchor(Element, _behaviour.RectTransform);
-			UpdateScale(Element, _behaviour.RectTransform);
-			UpdateRotation(Element, _behaviour.RectTransform);
-			UpdateInputTransparent(Element, _behaviour.RectTransform);
+			UpdateVisibility(Element, Control);
+			UpdateOpacity(Element, Control);
+			UpdatePositionSizeAnchor(Element, Control);
+			UpdateScale(Element, Control);
+			UpdateRotation(Element, Control);
+			UpdateInputTransparent(Element, Control);
 
-			if (_invalidateArrangeNeeded)
+			if (invalidateArrangeNeeded)
 			{
 				MaybeInvalidate();
+				invalidateArrangeNeeded = false;
 			}
-			_invalidateArrangeNeeded = false;
 
 			OnUpdated();
 		}
 
-		void OnUpdated()
+		private void OnUpdated()
 		{
 			Updated?.Invoke(this, EventArgs.Empty);
 		}
 
-		void OnRedrawNeeded(object sender, EventArgs e)
+		private void OnRedrawNeeded(object sender, EventArgs e)
 		{
 			UpdateNativeControl();
 		}
 
-		void MaybeInvalidate()
+		private void MaybeInvalidate()
 		{
 			if (Element.IsInNativeLayout)
+			{
 				return;
+			}
 
 			//var parent = (Control)Container.Parent;
 			//parent?.InvalidateMeasure();
 			//Container.InvalidateMeasure();
 		}
 
-		static void UpdateInputTransparent(VisualElement view, RectTransform rectTransform)
+		private static void UpdateInputTransparent(VisualElement view, NativeVisualElement control)
 		{
-			rectTransform.gameObject.SetActive(view.IsEnabled && view.IsVisible && !view.InputTransparent);
+			control.gameObject.SetActive(view.IsEnabled && view.IsVisible && !view.InputTransparent);
 		}
 
-		static void UpdateOpacity(VisualElement view, NativeVisualElement behaviour)
+		private static void UpdateOpacity(VisualElement view, NativeVisualElement control)
 		{
-			behaviour.Opacity = view.Opacity;
+			control.Opacity = view.Opacity;
 		}
 
-		static void UpdatePositionSizeAnchor(VisualElement view, RectTransform rectTransform)
+		private static void UpdatePositionSizeAnchor(VisualElement view, NativeVisualElement control)
 		{
 			var position = new Vector2((float)view.X, (float)view.Y);
 			var size = new Vector2(Mathf.Max((float)view.Width, 0.0f), Mathf.Max((float)view.Height, 0.0f));
@@ -206,20 +186,20 @@ namespace Xamarin.Forms.Platform.Unity
 				}
 			}*/
 
-			rectTransform.anchorMin = new Vector2(0.0f, 1.0f);
-			rectTransform.anchorMax = new Vector2(0.0f, 1.0f);
-			rectTransform.anchoredPosition = ap;
-			rectTransform.sizeDelta = size;
-			rectTransform.pivot = pivot;
+			control.RectTransform.anchorMin = new Vector2(0.0f, 1.0f);
+			control.RectTransform.anchorMax = new Vector2(0.0f, 1.0f);
+			control.RectTransform.anchoredPosition = ap;
+			control.RectTransform.sizeDelta = size;
+			control.RectTransform.pivot = pivot;
 
 			//Debug.Log(string.Format("Layout: {0} ({1}) pt={2} sz={3} pivot={4} ancpt={5}",
 			//	view.GetType(), rectTransform.GetInstanceID(),
 			//	position, size, pivot, ap));
 		}
 
-		static void UpdateRotation(VisualElement view, RectTransform rectTransform)
+		private static void UpdateRotation(VisualElement view, NativeVisualElement control)
 		{
-			rectTransform.localEulerAngles = new Vector3((float)view.RotationX, (float)view.RotationY, (float)view.Rotation);
+			control.RectTransform.localEulerAngles = new Vector3((float)view.RotationX, (float)view.RotationY, (float)view.Rotation);
 			/*
 			double anchorX = view.AnchorX;
 			double anchorY = view.AnchorY;
@@ -250,16 +230,15 @@ namespace Xamarin.Forms.Platform.Unity
 			*/
 		}
 
-		static void UpdateScale(VisualElement view, RectTransform rectTransform)
+		private static void UpdateScale(VisualElement view, NativeVisualElement control)
 		{
-			float scale = (float)view.Scale;
-			rectTransform.localScale = new Vector3(scale, scale, 0.0f);
-			rectTransform.localScale = new Vector3(scale, scale, 0.0f);
+			var scale = (float)view.Scale;
+			control.RectTransform.localScale = new Vector3(scale, scale, 0.0f);
 		}
 
-		static void UpdateVisibility(VisualElement view, RectTransform rectTransform)
+		private static void UpdateVisibility(VisualElement view, NativeVisualElement control)
 		{
-			UpdateInputTransparent(view, rectTransform);
+			UpdateInputTransparent(view, control);
 		}
 
 		#endregion
