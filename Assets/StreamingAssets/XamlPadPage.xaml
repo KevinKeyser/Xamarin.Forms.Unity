@@ -2,8 +2,8 @@
 <ContentPage
   xmlns="http://xamarin.com/schemas/2014/forms"
   xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-  x:Class="Page1"
-  InnerContent="{Binding RootPage.Value}">
+  xmlns:sys="clr-namespace:System;assembly=mscorlib"
+  x:Class="Page1">
   <Grid x:Name="_root" Padding="2">
     <Grid.RowDefinitions>
       <RowDefinition Height="30" />
@@ -19,21 +19,29 @@
         <ColumnDefinition Width="64" />
         <ColumnDefinition Width="64" />
         <ColumnDefinition Width="64" />
+        <ColumnDefinition Width="64" />
+        <ColumnDefinition Width="64" />
       </Grid.ColumnDefinitions>
 
-      <Switch Grid.Column="0" IsToggled="{Binding AutoParse.Value, Mode=TwoWay}" />
+      <Switch Grid.Column="0" IsToggled="{Binding AutoParse, Mode=TwoWay}" OnColor="Blue"/>
       <Label Grid.Column="1" VerticalTextAlignment="Center" FontSize="12" Text="Auto Parse" />
       <Button Grid.Column="2" FontSize="12" Text="Refresh" Command="{Binding CompileCommand}" />
       <Label Grid.Column="3" Margin="10,0,0,0" VerticalTextAlignment="Center" FontSize="12" Text="Font Size:" />
       <Picker Grid.Column="4"
         TextColor="Black"
-        SelectedIndex="{Binding FontSizeSelectedIndex.Value}"
+        SelectedIndex="{Binding FontSizeSelectedIndex}"
         ItemsSource="{Binding FontSizeList}"
         HorizontalOptions="FillAndExpand" />
+      <StackLayout BindingContext="{x:Static sys:DateTime.Now}"
+                    HorizontalOptions="Center" VerticalOptions="Center"
+                    Grid.Column="5">
+        <Label Text="{Binding StringFormat='{0}'}"/>
+      </StackLayout>
+      <Slider Grid.Column="6" Minimum="0" Maximum="1" Value=".5"/>
     </Grid>
     
-    <Editor Grid.Row="2" FontSize="{Binding FontSize.Value}" Text="{Binding XamlSource.Value, Mode=TwoWay}" />
-    <Editor Grid.Row="3" FontSize="14" Text="{Binding CompileResult.Value, Mode=TwoWay}" />
+    <Editor Grid.Row="2" FontSize="{Binding FontSize}" Text="{Binding XamlSource, Mode=TwoWay}" />
+    <Editor Grid.Row="3" FontSize="14" Text="{Binding CompileResult, Mode=TwoWay}" />
 
   </Grid>
 </ContentPage>

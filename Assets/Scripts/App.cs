@@ -13,7 +13,7 @@ public class App : Application
 		MainPage = page;*/
 		MainPage = new Page1();
 
-		MainPage.BindingContext = new SampleBindingContext(Xamarin.Forms.Platform.Unity.Forms.Activity);
+		MainPage.BindingContext = new SampleBindingContext();
 	}
 
 	protected override void OnStart()

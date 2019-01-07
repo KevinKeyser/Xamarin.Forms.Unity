@@ -1,158 +1,139 @@
-﻿using UnityEngine;
-using UniRx;
+using UnityEngine;
+
 using System.Windows.Input;
 using System.ComponentModel;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+
+using JetBrains.Annotations;
+
+using Xamarin.Forms;
 
 namespace XamlPad
 {
-	public class XamlPadBindingContext
-	{
-		class InternalReactiveCommand : ReactiveCommand, ICommand
-		{
-			public InternalReactiveCommand(MonoBehaviour disposer)
-			{
-				CanExecute.Subscribe(_ => CanExecuteChanged?.Invoke(this, EventArgs.Empty)).AddTo(disposer);
-			}
+    public class XamlPadBindingContext : INotifyPropertyChanged
+    {
+        public XamlPadBindingContext()
+        {
+            InitializePropertyValues();
+        }
 
-			public event EventHandler CanExecuteChanged;
+        /// <summary>
+        /// プロパティ値を初期化する。
+        /// BindingContext に設定後に呼び出す。
+        /// </summary>
+        public void InitializePropertyValues()
+        {
+            xamlSource =
+                "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<Grid\n  xmlns=\"http://xamarin.com/schemas/2014/forms\"\n  xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\">\n</Grid>";
 
-			void ICommand.Execute(object parameter)
-			{
-				Execute();
-			}
+            fontSizeSelectedIndex = 3;
+            fontSize = Int32.Parse(FontSizeList[fontSizeSelectedIndex]);
+            autoParse = false;
+            CompileCommand = new Command(() =>
+            {
+                CompileResult = autoParse ? "Success!" : "Failed!";
+            });
+        }
 
-			bool ICommand.CanExecute(object parameter)
-			{
-				return CanExecute.Value;
-			}
-		}
+        public ICommand CompileCommand { get; private set; }
 
-		class InternalReactiveProperty<T> : ReactiveProperty<T>, INotifyPropertyChanged
-		{
-			public InternalReactiveProperty(MonoBehaviour disposer)
-			{
-				this.Subscribe(_ => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null))).AddTo(disposer);
-			}
+        private bool autoParse;
 
-			public event PropertyChangedEventHandler PropertyChanged;
-		}
+        public bool AutoParse
+        {
+            get => autoParse;
+            set
+            {
+                if (Equals(autoParse, value))
+                {
+                    return;
+                }
 
-		class InternalReadOnlyReactiveProperty<T> : ReadOnlyReactiveProperty<T>, INotifyPropertyChanged
-		{
-			public InternalReadOnlyReactiveProperty(UniRx.IObservable<T> source, MonoBehaviour disposer) : base(source)
-			{
-				this.Subscribe(_ => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null))).AddTo(disposer);
-			}
+                autoParse = value;
+                OnPropertyChanged();
+            }
+        }
 
-			public event PropertyChangedEventHandler PropertyChanged;
-		}
+        private int fontSizeSelectedIndex;
 
-		public XamlPadBindingContext(MonoBehaviour disposer)
-		{
-			AutoParse = new InternalReactiveProperty<bool>(disposer);
-			XamlSource = new InternalReactiveProperty<string>(disposer);
-			CompileResult = new InternalReactiveProperty<string>(disposer);
-			FontSizeSelectedIndex = new InternalReactiveProperty<int>(disposer);
-			_fontSize = new InternalReactiveProperty<double>(disposer);
-			FontSize = new InternalReadOnlyReactiveProperty<double>(_fontSize, disposer);
-			RootPage = new InternalReactiveProperty<Xamarin.Forms.View>(disposer);
+        public int FontSizeSelectedIndex
+        {
+            get => fontSizeSelectedIndex;
+            set
+            {
+                if (Equals(fontSizeSelectedIndex, value))
+                {
+                    return;
+                }
 
-			var cmd = new InternalReactiveCommand(disposer);
-			cmd.Subscribe(_ =>
-			{
-				try
-				{
-					var page = new Xamarin.Forms.Grid();
-					Xamarin.Forms.Platform.Unity.XamlLoader.LoadXaml(page, XamlSource.Value);
-					RootPage.Value = page;
-					CompileResult.Value = "Success!";
-				}
-				catch (Exception e)
-				{
-					while (e.InnerException != null)
-					{
-						e = e.InnerException;
-					}
-					CompileResult.Value = e.Message;
-				}
+                fontSizeSelectedIndex = value;
 
-			});
-			CompileCommand = cmd;
+                FontSize = Int32.Parse(FontSizeList[fontSizeSelectedIndex]);
+                OnPropertyChanged();
+            }
+        }
 
-			FontSizeSelectedIndex.Subscribe(value =>
-			{
-				value = Math.Max(Math.Min(value, FontSizeList.Length - 1), 0);
-				_fontSize.Value = double.Parse(FontSizeList[value]);
-			});
+        private double fontSize;
 
-			IDisposable o = null;
-			AutoParse.Subscribe(value =>
-			{
-				o?.Dispose();
-				if (value)
-				{
-					o = XamlSource
-						.Throttle(new TimeSpan(TimeSpan.TicksPerSecond))
-						.ObserveOnMainThread()
-						.Subscribe(_ => cmd.Execute());
-				}
-			});
-		}
+        public double FontSize
+        {
+            get => fontSize;
+            set
+            {
+                if (Equals(fontSize, value))
+                {
+                    return;
+                }
 
-		/// <summary>
-		/// プロパティ値を初期化する。
-		/// BindingContext に設定後に呼び出す。
-		/// </summary>
-		public void InitializePropertyValues()
-		{
-			XamlSource.Value = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n<Grid\n  xmlns=\"http://xamarin.com/schemas/2014/forms\"\n  xmlns:x=\"http://schemas.microsoft.com/winfx/2009/xaml\">\n</Grid>";
-			FontSizeSelectedIndex.Value = 3;
-			AutoParse.Value = false;
-		}
+                fontSize = value;
+                OnPropertyChanged();
+            }
+        }
 
-		public ReactiveCommand CompileCommand
-		{
-			get;
-		}
+        public string[] FontSizeList { get; } = new string[] { "12", "14", "16", "18", "20", "22" };
 
-		public ReactiveProperty<bool> AutoParse
-		{
-			get;
-		}
+        private string xamlSource;
 
-		public ReactiveProperty<int> FontSizeSelectedIndex
-		{
-			get;
-		}
+        public string XamlSource
+        {
+            get => xamlSource;
+            set
+            {
+                if (Equals(xamlSource, value))
+                {
+                    return;
+                }
 
-		public ReadOnlyReactiveProperty<double> FontSize
-		{
-			get;
-		}
+                xamlSource = value;
+                OnPropertyChanged();
+            }
+        }
 
-		ReactiveProperty<double> _fontSize;
+        private string compileResult;
 
-		public string[] FontSizeList
-		{
-			get;
-		} = new string[] { "12", "14", "16", "18", "20", "22" };
+        public string CompileResult
+        {
+            get => compileResult;
+            set
+            {
+                if (Equals(compileResult, value))
+                {
+                    return;
+                }
 
-		public ReactiveProperty<string> XamlSource
-		{
-			get;
-		}
+                compileResult = value;
+                OnPropertyChanged();
+            }
+        }
 
-		public ReactiveProperty<string> CompileResult
-		{
-			get;
-		}
+        public event PropertyChangedEventHandler PropertyChanged;
 
-		public ReactiveProperty<Xamarin.Forms.View> RootPage
-		{
-			get;
-		}
-	}
-
+        [NotifyPropertyChangedInvocator]
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+    }
 }

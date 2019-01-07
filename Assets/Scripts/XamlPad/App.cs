@@ -1,4 +1,5 @@
 ﻿using Xamarin.Forms;
+using Xamarin.Forms.Platform.Unity;
 
 namespace XamlPad
 {
@@ -7,7 +8,8 @@ namespace XamlPad
 		public App()
 		{
 			MainPage = new XamlPadPage();
-			MainPage.BindingContext = new XamlPadBindingContext(Xamarin.Forms.Platform.Unity.Forms.Activity);
+			Application app = new Application();
+			MainPage.BindingContext = new XamlPadBindingContext();
 		}
 
 		protected override void OnStart()
