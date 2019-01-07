@@ -1,115 +1,156 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.ComponentModel;
-using UniRx;
+
+using UnityEngine;
+using UnityEngine.UI;
+
+using Xamarin.Forms.Internals;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class EntryRenderer : ViewRenderer<Entry, UnityEngine.UI.InputField>
-	{
-		/*-----------------------------------------------------------------*/
-		#region Field
+    public class EntryRenderer : ViewRenderer<Entry, NativeEntryElement>
+    {
+        public EntryRenderer()
+        {
+            NativeElement.LineType = UnityEngine.UI.InputField.LineType.SingleLine;
+            NativeElement.OnValueChanged += (sender, value) => Element.Text = value;
+        }
 
-		TextTracker _componentText;
+        protected override void OnElementChanged(ElementChangedEventArgs<Entry> e)
+        {
+            base.OnElementChanged(e);
 
-		#endregion
+            if (e.NewElement == null)
+            {
+                return;
+            }
 
-		/*-----------------------------------------------------------------*/
-		#region MonoBehavior
+            UpdateText();
+            UpdateTextColor();
+            UpdateFontSize();
+            UpdateFontFamily();
+            UpdateFontAttributes();
+            UpdatePlaceholder();
+            UpdatePlaceholderColor();
+            UpdateInputType();
+        }
 
-		protected override void Awake()
-		{
-			base.Awake();
+        protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == Entry.TextProperty.PropertyName)
+            {
+                UpdateText();
+            }
+            else if (e.PropertyName == Entry.TextColorProperty.PropertyName)
+            {
+                UpdateTextColor();
+            }
+            else if (e.PropertyName == Entry.FontSizeProperty.PropertyName || 
+                     e.PropertyName == Entry.FontFamilyProperty.PropertyName)
+            {
+                UpdateFontSize();
+                UpdateFontFamily();
+            }
+            else if (e.PropertyName == Entry.FontAttributesProperty.PropertyName)
+            {
+                UpdateFontAttributes();
+            }
+            else if (e.PropertyName == Entry.PlaceholderProperty.PropertyName)
+            {
+                UpdatePlaceholder();
+            }
+            else if (e.PropertyName == Entry.PlaceholderColorProperty.PropertyName)
+            {
+                UpdatePlaceholderColor();
+            }
+            else if (e.PropertyName == InputView.IsSpellCheckEnabledProperty.PropertyName ||
+                     e.PropertyName == InputView.KeyboardProperty.PropertyName ||
+                     e.PropertyName == Entry.IsPasswordProperty.PropertyName ||
+                     e.PropertyName == Entry.IsTextPredictionEnabledProperty.PropertyName)
+            {
+                UpdateInputType();
+            }
 
-			var inputField = Control;
-			if (inputField != null)
-			{
-				inputField.lineType = UnityEngine.UI.InputField.LineType.SingleLine;
-				inputField.OnValueChangedAsObservable()
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						var element = Element;
-						if (element != null)
-						{
-							element.Text = value;
-						}
-					}).AddTo(inputField);
+            base.OnElementPropertyChanged(sender, e);
+        }
 
-				_componentText = new TextTracker(inputField.textComponent);
-			}
-		}
+        private void UpdateText()
+        {
+            NativeElement.Text = Element.Text;
+        }
 
-		#endregion
+        private void UpdateTextColor()
+        {
+            NativeElement.Foreground = Element.TextColor.ToUnityColor();
+        }
 
-		/*-----------------------------------------------------------------*/
-		#region Event Handler
+        private void UpdateFontSize()
+        {
+            NativeElement.FontSize = Element.FontSize <= 0 ? (int)Device.GetNamedSize(NamedSize.Default, Element.GetType()) : (int)Element.FontSize;
+        }
 
-		protected override void OnElementChanged(ElementChangedEventArgs<Entry> e)
-		{
-			base.OnElementChanged(e);
+        private void UpdateFontAttributes()
+        {
+            NativeElement.FontStyle = Element.FontAttributes.ToUnityFontStyle();
+        }
 
-			if (e.NewElement != null)
-			{
-				base.OnElementChanged(e);
+        private void UpdateFontFamily()
+        {
+            NativeElement.Font = FontExtensions.ToUnityFont(Element.FontFamily, NativeElement.FontSize);
+        }
 
-				if (e.NewElement != null)
-				{
-					//_isInitiallyDefault = Element.IsDefault();
+        private void UpdatePlaceholder()
+        {
+            NativeElement.Placeholder = Element.Placeholder;
+        }
 
-					UpdateText();
-					UpdateTextColor();
-					UpdateFont();
-				}
-			}
-		}
+        private void UpdatePlaceholderColor()
+        {
+            NativeElement.PlaceholderColor = Element.PlaceholderColor.ToUnityColor();
+        }
 
-		protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == Entry.TextProperty.PropertyName)
-			{
-				UpdateText();
-			}
-			else if (e.PropertyName == Entry.TextColorProperty.PropertyName)
-			{
-				UpdateTextColor();
-			}
-			else if (e.PropertyName == Entry.FontSizeProperty.PropertyName ||
-				e.PropertyName == Entry.FontAttributesProperty.PropertyName)
-			{
-				UpdateFont();
-			}
+        private void UpdateInputType()
+        {
+            if (Element.IsPassword)
+            {
+                NativeElement.ContentType = InputField.ContentType.Password;
+                NativeElement.InputType = InputField.InputType.Password;
 
-			base.OnElementPropertyChanged(sender, e);
-		}
+                return;
+            }
 
-		#endregion
+            NativeElement.InputType = Element.IsSpellCheckEnabled
+                ? InputField.InputType.AutoCorrect
+                : InputField.InputType.Standard;
 
-		/*-----------------------------------------------------------------*/
-		#region Internals
+            switch (Element.Keyboard)
+            {
+                case TextKeyboard textKeyboard:
+                case ChatKeyboard chatKeyboard:
+                    NativeElement.ContentType =
+                        Element.IsSpellCheckEnabled
+                            ? InputField.ContentType.Autocorrected
+                            : InputField.ContentType.Standard;
 
-		void UpdateText()
-		{
-			var inputField = Control;
-			if (inputField != null)
-			{
-				inputField.text = Element.Text;
-			}
-		}
+                    break;
+                case EmailKeyboard emailKeyboard:
+                    NativeElement.ContentType = InputField.ContentType.EmailAddress;
 
-		void UpdateTextColor()
-		{
-			_componentText.UpdateTextColor(Element.TextColor);
-		}
+                    break;
+                case UrlKeyboard urlKeyboard:
+                case CustomKeyboard customKeyboard:
+                    NativeElement.ContentType = InputField.ContentType.Custom;
 
-		void UpdateFont()
-		{
-			_componentText.UpdateFont(Element);
-		}
+                    break;
+                case NumericKeyboard numericKeyboard:
+                    NativeElement.ContentType = InputField.ContentType.DecimalNumber;
 
-		#endregion
-	}
+                    break;
+                case TelephoneKeyboard telephoneKeyboard:
+                    NativeElement.ContentType = InputField.ContentType.IntegerNumber;
+
+                    break; 
+            }
+        }
+    }
 }

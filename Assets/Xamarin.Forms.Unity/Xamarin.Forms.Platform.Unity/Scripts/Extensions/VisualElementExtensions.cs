@@ -43,7 +43,7 @@ namespace Xamarin.Forms.Platform.Unity
 					continue;
 				}
 
-				childRenderer.DestroyObject();
+				childRenderer.Dispose();
 				Platform.SetRenderer(visual, null);
 			}
 
@@ -52,7 +52,7 @@ namespace Xamarin.Forms.Platform.Unity
 				return;
 			}
 
-			renderer.DestroyObject();
+			renderer.Dispose();
 			Platform.SetRenderer(self, null);
 		}
 	}

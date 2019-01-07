@@ -3,116 +3,80 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 using UnityEngine;
-using UniRx;
+
 using System.ComponentModel;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class SliderRenderer : ViewRenderer<Slider, UnityEngine.UI.Slider>
-	{
-		/*-----------------------------------------------------------------*/
-		#region Field
+    public class SliderRenderer : ViewRenderer<Slider, NativeSliderElement>
+    {
+        public SliderRenderer()
+        {
+            NativeElement.OnValueChanged += (sender, args) => Element.Value = args;
 
-		#endregion
+            NativeElement.OnMinimumChanged += (sender, args) => Element.Minimum = args;
+            NativeElement.OnMaximumChanged += (sender, args) => Element.Maximum = args;
+        }
+       
+        #region Event Handler
+        protected override void OnElementChanged(ElementChangedEventArgs<Slider> e)
+        {
+            base.OnElementChanged(e);
 
-		/*-----------------------------------------------------------------*/
-		#region MonoBehavior
+            if (e.NewElement == null)
+            {
+                return;
+            }
 
-		protected override void Awake()
-		{
-			base.Awake();
+            UpdateValue();
+            UpdateMinimum();
+            UpdateMaximum();
+            UpdateHandleColor();
+        }
 
-			var slider = Control;
-			if (slider != null)
-			{
-				slider.OnValueChangedAsObservable()
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						if (Element != null)
-						{
-							Element.Value = value;
-						}
-					}).AddTo(slider);
+        protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == Slider.ValueProperty.PropertyName)
+            {
+                UpdateValue();
+            }
+            else if (e.PropertyName == Slider.MinimumProperty.PropertyName)
+            {
+                UpdateMinimum();
+            }
+            else if (e.PropertyName == Slider.MaximumProperty.PropertyName)
+            {
+                UpdateMaximum();
+            }
+            else if (e.PropertyName == Slider.ThumbColorProperty.PropertyName)
+            {
+                UpdateHandleColor();
+            }
+            
+            base.OnElementPropertyChanged(sender, e);
+        }
+        #endregion
 
-				slider.ObserveEveryValueChanged(x => x.minValue)
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						if (Element != null)
-						{
-							Element.Minimum = value;
-						}
-					}).AddTo(slider);
+        private void UpdateValue()
+        {
+            NativeElement.Value = (float)Element.Value;
+        }
 
-				slider.ObserveEveryValueChanged(x => x.maxValue)
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						if (Element != null)
-						{
-							Element.Maximum = value;
-						}
-					}).AddTo(slider);
-			}
-		}
+        private void UpdateMinimum()
+        {
+            NativeElement.Minimum = (float)Element.Minimum;
+        }
 
-		#endregion
+        private void UpdateMaximum()
+        {
+            NativeElement.Maximum = (float)Element.Maximum;
+        }
 
-		/*-----------------------------------------------------------------*/
-		#region Event Handler
-
-		protected override void OnElementChanged(ElementChangedEventArgs<Slider> e)
-		{
-			base.OnElementChanged(e);
-
-			if (e.NewElement != null)
-			{
-				UpdateValue();
-			}
-		}
-
-		protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == Slider.ValueProperty.PropertyName)
-				UpdateValue();
-			else if (e.PropertyName == Slider.MinimumProperty.PropertyName)
-				UpdateMinimum();
-			else if (e.PropertyName == Slider.MaximumProperty.PropertyName)
-				UpdateMaximum();
-			base.OnElementPropertyChanged(sender, e);
-		}
-
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Internals
-
-		void UpdateValue()
-		{
-			if (Control != null && Element != null)
-			{
-				Control.value = (float)Element.Value;
-			}
-		}
-
-		void UpdateMinimum()
-		{
-			if (Control != null && Element != null)
-			{
-				Control.minValue = (float)Element.Minimum;
-			}
-		}
-
-		void UpdateMaximum()
-		{
-			if (Control != null && Element != null)
-			{
-				Control.maxValue = (float)Element.Maximum;
-			}
-		}
-
-		#endregion
-	}
+        private void UpdateHandleColor()
+        {
+            NativeElement.HandleColor = Element.ThumbColor.ToUnityColor();
+        }
+    }
 }

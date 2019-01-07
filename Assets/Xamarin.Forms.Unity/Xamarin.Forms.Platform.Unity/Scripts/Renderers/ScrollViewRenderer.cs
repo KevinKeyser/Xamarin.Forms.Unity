@@ -1,241 +1,152 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Xamarin.Forms.Internals;
+
 using UnityEngine;
-using UniRx;
-using UniRx.Triggers;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class ScrollViewRenderer : ViewRenderer<ScrollView, UnityEngine.UI.ScrollRect>
-	{
-		/*-----------------------------------------------------------------*/
-		#region Field
+    public class ScrollViewRenderer : ViewRenderer<ScrollView, NativeScrollViewElement>
+    {
+        public override Transform UnityContainerTransform => NativeElement ? NativeElement.Content : null;
 
-		#endregion
+        public ScrollViewRenderer()
+        {
+            NativeElement.OnScrollChanged += (sender, args) =>
+            {
+                var x = (1.0 - args.x) * Element.ContentSize.Height;
+                var y = (1.0 - args.y) * Element.ContentSize.Height;
+                Element.SetScrolledPosition(x, y);
+            };
+        }
 
-		/*-----------------------------------------------------------------*/
-		#region MonoBehavior
+        #region Event Handler
+        protected override void OnElementChanged(ElementChangedEventArgs<ScrollView> e)
+        {
+            base.OnElementChanged(e);
 
-		protected override void Awake()
-		{
-			base.Awake();
+            if (e.NewElement == null)
+            {
+                return;
+            }
+            
+            UpdateOrientation();
+            UpdateContentSize();
+            UpdateScrollXPosition();
+            UpdateScrollYPosition();
+        }
 
-			var scrollRect = Control;
-			if (scrollRect != null)
-			{
-				var vbar = scrollRect.verticalScrollbar;
-				var hbar = scrollRect.horizontalScrollbar;
+        protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == ScrollView.OrientationProperty.PropertyName ||
+                e.PropertyName == ScrollView.VerticalScrollBarVisibilityProperty.PropertyName ||
+                e.PropertyName == ScrollView.HorizontalScrollBarVisibilityProperty.PropertyName)
+            {
+                UpdateOrientation();
+            }
+            else if (e.PropertyName == ScrollView.ScrollXProperty.PropertyName)
+            {
+                UpdateScrollXPosition();
+            }
+            else if (e.PropertyName == ScrollView.ScrollYProperty.PropertyName)
+            {
+                UpdateScrollYPosition();
+            }
+            else if (e.PropertyName == ScrollView.ContentSizeProperty.PropertyName)
+            {
+                UpdateContentSize();
+            }
 
-				vbar?.OnValueChangedAsObservable()
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						var element = Element;
-						if (element != null)
-						{
-							var y = (1.0 - value) * element.ContentSize.Height;
-							element.SetScrolledPosition(element.ScrollX, y);
+            base.OnElementPropertyChanged(sender, e);
+        }
+        #endregion
 
-							//Debug.Log(string.Format("Unity: vbar={0} -> XF: ScollView.SetScrolledPosition({1}, {2})", value, element.ScrollX, y));
-						}
-					});
+        private void UpdateOrientation()
+        {
+            switch (Element.Orientation)
+            {
+                case ScrollOrientation.Vertical:
+                    NativeElement.Horizontal = false;
+                    NativeElement.Vertical = true;
 
-				hbar?.OnValueChangedAsObservable()
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						var element = Element;
-						if (element != null)
-						{
-							var x = (1.0 - value) * element.ContentSize.Width;
-							element.SetScrolledPosition(x, element.ScrollY);
+                    break;
 
-							//Debug.Log(string.Format("Unity: hbar={0} -> XF: ScollView.SetScrolledPosition({1}, {2})", value, x, element.ScrollY));
-						}
-					});
-			}
-		}
+                case ScrollOrientation.Horizontal:
+                    NativeElement.Horizontal = true;
+                    NativeElement.Vertical = false;
 
-		#endregion
+                    break;
 
-		/*-----------------------------------------------------------------*/
-		#region IVisualElementRenderer
+                case ScrollOrientation.Both:
+                    NativeElement.Horizontal = true;
+                    NativeElement.Vertical = true;
 
-		public override Transform UnityContainerTransform => Control?.content;
+                    break;
 
-		#endregion
+                default:
 
-		/*-----------------------------------------------------------------*/
-		#region Event Handler
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
 
-		protected override void OnElementChanged(ElementChangedEventArgs<ScrollView> e)
-		{
-			base.OnElementChanged(e);
+        private void UpdateScrollXPosition()
+        {
+            var (width, height) = Element.ContentSize;
 
-			if (e.NewElement != null)
-			{
-				UpdateOrientation();
-				UpdateContentSize();
-			}
-		}
+            if (width > 0.0)
+            {
+                NativeElement.ScrollValue =
+                    new Vector2((float)(1.0f - Element.ScrollX / width), NativeElement.ScrollValue.y);
+            }
+        }
 
-		protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == ScrollView.OrientationProperty.PropertyName)
-			{
-				UpdateOrientation();
-			}
-			else if (e.PropertyName == ScrollView.ScrollXProperty.PropertyName)
-			{
-				UpdateScrollXPosition();
-			}
-			else if (e.PropertyName == ScrollView.ScrollYProperty.PropertyName)
-			{
-				UpdateScrollYPosition();
-			}
-			else if (e.PropertyName == ScrollView.ContentSizeProperty.PropertyName)
-			{
-				UpdateContentSize();
-			}
+        private void UpdateScrollYPosition()
+        {
+            var (width, height) = Element.ContentSize;
 
-			base.OnElementPropertyChanged(sender, e);
-		}
+            if (height > 0.0)
+            {
+                NativeElement.ScrollValue =
+                    new Vector2(NativeElement.ScrollValue.x, (float)(1.0f - Element.ScrollY / height));
+            }
+        }
 
-		#endregion
+        private void UpdateContentSize()
+        {
+            var content = NativeElement.Content;
 
-		/*-----------------------------------------------------------------*/
-		#region Internals
+            var size = Element.ContentSize;
+            var x = Element.ScrollX;
+            var y = Element.ScrollY;
 
-		void UpdateOrientation()
-		{
-			var element = Element;
-			var scroll = Control;
-			if (element != null)
-			{
-				switch (element.Orientation)
-				{
-					case ScrollOrientation.Vertical:
-						{
-							scroll.horizontal = false;
-							scroll.vertical = true;
-						}
-						break;
+            var pivot = content.pivot;
+            content.anchorMin = new Vector2();
+            content.anchorMax = new Vector2();
+            content.anchoredPosition = new Vector2();
+            content.pivot = new Vector2();
 
-					case ScrollOrientation.Horizontal:
-						{
-							scroll.horizontal = true;
-							scroll.vertical = false;
-						}
-						break;
+            content.sizeDelta = new Vector2((float)size.Width, (float)size.Height);
+            var w = 0.0f;
+            var h = 0.0f;
 
-					case ScrollOrientation.Both:
-						{
-							scroll.horizontal = true;
-							scroll.vertical = true;
-						}
-						break;
-				}
-			}
-		}
+            if (size.Width > 0.0)
+            {
+                w = (float)(1.0f - x / size.Width);
+            }
+            else
+            {
+                NativeElement.Horizontal = false;
+            }
 
-		void UpdateScrollXPosition()
-		{
-			var element = Element;
-			var hbar = Control?.horizontalScrollbar;
+            if (size.Height > 0.0)
+            {
+                h = (float)(1.0f - y / size.Height);
+            }
+            else
+            {
+                NativeElement.Vertical = false;
+            }
 
-			if (element != null && hbar != null)
-			{
-				var size = element.ContentSize;
-				if (size.Width > 0.0)
-				{
-					hbar.value = (float)(1.0f - element.ScrollX / size.Width);
-					//Debug.Log(string.Format("XF: {0} -> Unity: hbar.value = {1}", element.ScrollX, hbar.value));
-				}
-			}
-		}
-
-		void UpdateScrollYPosition()
-		{
-			var element = Element;
-			var vbar = Control?.verticalScrollbar;
-
-			if (element != null && vbar != null)
-			{
-				var size = element.ContentSize;
-				if (size.Height > 0.0)
-				{
-					vbar.value = (float)(1.0f - element.ScrollY / size.Height);
-					//Debug.Log(string.Format("XF: {0} -> Unity: vbar.value = {1}", element.ScrollY, vbar.value));
-				}
-			}
-		}
-
-		void UpdateContentSize()
-		{
-			var element = Element;
-			var scrollRect = Control;
-			if (element == null || scrollRect == null)
-			{
-				return;
-			}
-			var content = scrollRect.content;
-			var vbar = scrollRect.verticalScrollbar;
-			var hbar = scrollRect.horizontalScrollbar;
-			if (content != null)
-			{
-				var size = element.ContentSize;
-				var x = element.ScrollX;
-				var y = element.ScrollY;
-
-				var pivot = content.pivot;
-				content.anchorMin = new Vector2();
-				content.anchorMax = new Vector2();
-				content.anchoredPosition = new Vector2();
-				content.pivot = new Vector2();
-
-				content.sizeDelta = new Vector2((float)size.Width, (float)size.Height);
-				float w = 0.0f;
-				float h = 0.0f;
-				if (size.Width > 0.0)
-				{
-					w = (float)(1.0f - x / size.Width);
-				}
-				else
-				{
-					hbar = null;
-				}
-				if (size.Height > 0.0 && vbar != null)
-				{
-					h = (float)(1.0f - y / size.Height);
-				}
-				else
-				{
-					vbar = null;
-				}
-
-				Action<Unit> f = _ =>
-				{
-					if (hbar != null)
-					{
-						hbar.value = w;
-					}
-					if (vbar != null)
-					{
-						vbar.value = h;
-					}
-				};
-
-				//	ここで設定しても Unity 側で上書きされるので次 Update で設定するのが本命
-				f(Unit.Default);
-				scrollRect.UpdateAsObservable().Take(1).Subscribe(f);
-			}
-		}
-
-		#endregion
-	}
+            NativeElement.ScrollValue = new Vector2(w, h);
+        }
+    }
 }

@@ -12,14 +12,14 @@ namespace Xamarin.Forms.Platform.Unity
 {
 	public class VisualElementTracker<TElement, TNativeElement>
 		where TElement : VisualElement
-		where TNativeElement : UnityEngine.Component
+		where TNativeElement : NativeVisualElement
 	{
 		/*-----------------------------------------------------------------*/
 		#region Private Field
 
 		TNativeElement _control;
 		TElement _element;
-		VisualElementBehaviour _behaviour;
+		NativeVisualElement _behaviour;
 
 		bool _invalidateArrangeNeeded;
 
@@ -28,7 +28,7 @@ namespace Xamarin.Forms.Platform.Unity
 		/*-----------------------------------------------------------------*/
 		#region Constructor
 
-		public VisualElementTracker(TNativeElement control, VisualElementBehaviour behaviour)
+		public VisualElementTracker(TNativeElement control, NativeVisualElement behaviour)
 		{
 			_control = control;
 			_behaviour = behaviour;
@@ -184,7 +184,7 @@ namespace Xamarin.Forms.Platform.Unity
 			rectTransform.gameObject.SetActive(view.IsEnabled && view.IsVisible && !view.InputTransparent);
 		}
 
-		static void UpdateOpacity(VisualElement view, VisualElementBehaviour behaviour)
+		static void UpdateOpacity(VisualElement view, NativeVisualElement behaviour)
 		{
 			behaviour.Opacity = view.Opacity;
 		}

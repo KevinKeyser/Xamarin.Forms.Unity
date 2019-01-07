@@ -1,171 +1,139 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 using UnityEngine;
-using UniRx;
+
 using System.ComponentModel;
+
 using UnityEngine.EventSystems;
+
 using System.Collections.Specialized;
+
+using UnityEngine.UI;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class PickerRenderer : ViewRenderer<Picker, UnityEngine.UI.Dropdown>, IPointerClickHandler
-	{
-		/*-----------------------------------------------------------------*/
-		#region Field
+    public class PickerRenderer : ViewRenderer<Picker, NativePickerElement>
+    {
+        public PickerRenderer()
+        {
+            NativeElement.OnSelectionChanged += (sender, value) => Element.SelectedIndex = value;
+        }
 
-		bool _requiredUpdateOptions;
+        #region Event Handler
+        protected override void OnElementChanged(ElementChangedEventArgs<Picker> e)
+        {
+            base.OnElementChanged(e);
 
-		#endregion
+            e.OldElement?.Items.RemoveCollectionChangedEvent(OnCollectionChanged);
 
-		/*-----------------------------------------------------------------*/
-		#region MonoBehavior
+            if (e.NewElement == null)
+            {
+                return;
+            }
 
-		protected override void Awake()
-		{
-			base.Awake();
+            e.NewElement.Items.AddCollectionChangedEvent(OnCollectionChanged);
 
-			_requiredUpdateOptions = false;
+            NativeElement.Options = CreateOptionData(e.NewElement.Items);
 
-			var picker = Control;
-			if (picker != null)
-			{
-				picker.onValueChanged.AsObservable()
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						var elem = Element;
-						if (elem != null)
-						{
-							elem.SelectedIndex = value;
-						}
-					}).AddTo(picker);
-				picker.template.anchorMin = new Vector2(0.0f, 1.0f);
-				picker.template.anchorMax = new Vector2(1.0f, 1.0f);
-				picker.template.anchoredPosition = new Vector2();
-				picker.template.pivot = new Vector2(0.5f, 0.0f);
-			}
-		}
+            UpdateSelectedIndex();
+            UpdateTextColor();
+            UpdatePicker();
+            UpdateFontSize();
+            UpdateFontFamily();
+            UpdateFontAttributes();
+        }
 
-		#endregion
+        protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == Picker.SelectedIndexProperty.PropertyName)
+            {
+                UpdateSelectedIndex();
+            }
+            else if (e.PropertyName == Picker.TextColorProperty.PropertyName)
+            {
+                UpdateTextColor();
+            }
+            else if (e.PropertyName == Picker.ItemsSourceProperty.PropertyName)
+            {
+                UpdatePicker();
+            }
+            else if (e.PropertyName == Picker.FontSizeProperty.PropertyName || 
+                     e.PropertyName == Picker.FontFamilyProperty.PropertyName)
+            {
+                UpdateFontSize();
+                UpdateFontFamily();
+            }
+            else if (e.PropertyName == Picker.FontAttributesProperty.PropertyName)
+            {
+                UpdateFontAttributes();
+            }
 
-		/*-----------------------------------------------------------------*/
-		#region Event Handler
+            base.OnElementPropertyChanged(sender, e);
+        }
+        #endregion
 
-		protected override void OnElementChanged(ElementChangedEventArgs<Picker> e)
-		{
-			base.OnElementChanged(e);
+        private void UpdateSelectedIndex()
+        {
+            NativeElement.SelectedIndex = Element.SelectedIndex;
+        }
 
-			if (e.OldElement != null)
-			{
-				e.OldElement.Items.RemoveCollectionChangedEvent(OnCollectionChanged);
-			}
-			if (e.NewElement != null)
-			{
-				e.NewElement.Items.AddCollectionChangedEvent(OnCollectionChanged);
+        private void UpdateTextColor()
+        {
+            NativeElement.Foreground = Element.TextColor.ToUnityColor();
+        }
 
-				Control.options = CreateOptionDatas(e.NewElement.Items);
+        private void UpdateFontSize()
+        {
+            NativeElement.FontSize = Element.FontSize <= 0 ? (int)Device.GetNamedSize(NamedSize.Default, Element.GetType()) : (int)Element.FontSize;
+        }
 
-				UpdateSelectedIndex();
-				UpdatePicker();
-				UpdateTextColor();
-			}
-		}
+        private void UpdateFontAttributes()
+        {
+            NativeElement.FontStyle = Element.FontAttributes.ToUnityFontStyle();
+        }
 
-		protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == Picker.SelectedIndexProperty.PropertyName)
-			{
-				UpdateSelectedIndex();
-			}
-			else if (e.PropertyName == Picker.TextColorProperty.PropertyName)
-			{
-				UpdateTextColor();
-			}
+        private void UpdateFontFamily()
+        {
+            NativeElement.Font = FontExtensions.ToUnityFont(Element.FontFamily, NativeElement.FontSize);
+        }
 
-			base.OnElementPropertyChanged(sender, e);
-		}
+        private void UpdatePicker()
+        {
+            var index = Element.SelectedIndex;
 
-		#endregion
+            if (index < 0 || index >= Element.Items.Count)
+            {
+                NativeElement.CaptionText = String.Empty;
+            }
+            else
+            {
+                NativeElement.CaptionText = Element.Items[index];
+            }
+        }
 
-		/*-----------------------------------------------------------------*/
-		#region Internals
+        private void OnCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
+        {
+            NativeElement.Options = CreateOptionData(Element.Items);
+            UpdatePicker();
+        }
 
-		void UpdateSelectedIndex()
-		{
-			if (Control != null && Element != null)
-			{
-				Control.value = Element.SelectedIndex; 
-			}
-		}
+        private static List<UnityEngine.UI.Dropdown.OptionData> CreateOptionData(IList<string> source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
 
-		void UpdateTextColor()
-		{
-			var text = Control?.captionText;
-			if (text != null && Element != null)
-			{
-				text.color = Element.TextColor.ToUnityColor();
-			}
-		}
+            var count = source.Count;
+            var options = new List<UnityEngine.UI.Dropdown.OptionData>(count);
 
-		void UpdatePicker()
-		{
-			_requiredUpdateOptions = true;
+            for (var i = 0; i < count; i++)
+            {
+                options.Add(new UnityEngine.UI.Dropdown.OptionData(source[i]));
+            }
 
-			var element = Element;
-			if (element != null)
-			{
-				var text = Control?.captionText;
-				if (text != null)
-				{
-					var index = element.SelectedIndex;
-					if (index < 0 || index >= element.Items.Count)
-					{
-						text.text = string.Empty;
-					}
-					else
-					{
-						text.text = element.Items[index];
-					}
-				}
-			}
-		}
-
-		void OnCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
-		{
-			UpdatePicker();
-		}
-
-		static List<UnityEngine.UI.Dropdown.OptionData> CreateOptionDatas(IList<string> source)
-		{
-			if (source != null)
-			{
-				int count = source.Count;
-				var ret = new List<UnityEngine.UI.Dropdown.OptionData>(count);
-				for (int i = 0; i < count; i++)
-				{
-					ret.Add(new UnityEngine.UI.Dropdown.OptionData(source[i]));
-				}
-				return ret;
-			}
-			return null;
-		}
-
-		void IPointerClickHandler.OnPointerClick(PointerEventData eventData)
-		{
-			var picker = Control;
-			var element = Element;
-			if (_requiredUpdateOptions && element != null && picker != null)
-			{
-				var index = picker.value;
-				picker.options = CreateOptionDatas(Element.Items);
-				element.SelectedIndex = index;
-				picker.value = index;
-			}
-		}
-
-		#endregion
-	}
+            return options;
+        }
+    }
 }

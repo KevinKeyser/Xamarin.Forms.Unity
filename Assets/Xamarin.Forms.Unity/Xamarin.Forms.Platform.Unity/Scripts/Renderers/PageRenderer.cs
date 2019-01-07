@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class PageRenderer : VisualElementRenderer<Page, UnityEngine.Canvas>
+	public class PageRenderer : VisualElementRenderer<Page, NativeVisualElement>
 	{
 	}
 }

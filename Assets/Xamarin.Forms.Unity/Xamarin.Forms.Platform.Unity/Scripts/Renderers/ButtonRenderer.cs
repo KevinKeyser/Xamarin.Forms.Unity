@@ -1,99 +1,92 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using UnityEngine;
-using UniRx;
 using System.ComponentModel;
+
+using UnityEngine;
+
+using Xamarin.Forms.Internals;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class ButtonRenderer : ViewRenderer<Button, UnityEngine.UI.Button>
-	{
-		/*-----------------------------------------------------------------*/
-		#region Field
+    public class ButtonRenderer : ViewRenderer<Button, NativeButtonElement>
+    {
+        public ButtonRenderer()
+        {
+            NativeElement.OnClick += (sender, args) =>
+            {
+                (Element as IButtonController)?.SendClicked();
+            };
+        }
 
-		TextTracker _componentText;
+        protected override void OnElementChanged(ElementChangedEventArgs<Button> e)
+        {
+            base.OnElementChanged(e);
 
-		#endregion
+            if (e.NewElement == null)
+            {
+                return;
+            }
 
-		/*-----------------------------------------------------------------*/
-		#region MonoBehavior
+            UpdateText();
+            UpdateTextColor();
+            UpdateFontSize();
+            UpdateFontFamily();
+            UpdateFontAttributes();
+        }
 
-		protected override void Awake()
-		{
-			base.Awake();
+        protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == Button.TextProperty.PropertyName)
+            {
+                UpdateText();
+            }
+            else if (e.PropertyName == Button.TextColorProperty.PropertyName)
+            {
+                UpdateTextColor();
+            }
+            else if (e.PropertyName == Button.FontSizeProperty.PropertyName ||
+                     e.PropertyName == Button.FontFamilyProperty.PropertyName)
+            {
+                UpdateFontSize();
+                UpdateFontFamily();
+            }
+            else if(e.PropertyName == Button.FontAttributesProperty.PropertyName)
+            {
+                UpdateFontAttributes();
+            }
+            else if (e.PropertyName == Button.FontProperty.PropertyName)
+            {
+                UpdateFontSize();
+                UpdateFontFamily();
+                UpdateFontAttributes();
+            }
+            
+            base.OnElementPropertyChanged(sender, e);
+        }
 
-			var button = Control;
-			if (button != null)
-			{
-				button.OnClickAsObservable()
-					.Subscribe(_ => (Element as IButtonController)?.SendClicked())
-					.AddTo(button);
-			}
+        private void UpdateText()
+        {
+            NativeElement.Text = Element.Text;
+        }
 
-			_componentText = new TextTracker(button.GetComponentInChildren<UnityEngine.UI.Text>());
-		}
+        private void UpdateTextColor()
+        {
+            NativeElement.Foreground = Element.TextColor.ToUnityColor();
+        }
 
-		#endregion
+        private void UpdateFontSize()
+        {
+            NativeElement.FontSize = Element.FontSize <= 0 ? (int)Device.GetNamedSize(NamedSize.Default, Element.GetType()) : (int)Element.FontSize;
+        }
 
-		/*-----------------------------------------------------------------*/
-		#region Event Handler
+        private void UpdateFontAttributes()
+        {
+            NativeElement.FontStyle = Element.FontAttributes.ToUnityFontStyle();
+        }
 
-		protected override void OnElementChanged(ElementChangedEventArgs<Button> e)
-		{
-			base.OnElementChanged(e);
+        private void UpdateFontFamily()
+        {
+            NativeElement.Font = Element.Font.ToUnityFont(out var _, out var _);
+        }
 
-			if (e.NewElement != null)
-			{
-				//_isInitiallyDefault = Element.IsDefault();
-
-				UpdateText();
-				UpdateTextColor();
-				UpdateFont();
-			}
-		}
-
-		protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == Button.TextProperty.PropertyName)
-			{
-				UpdateText();
-			}
-			else if (e.PropertyName == Button.TextColorProperty.PropertyName)
-			{
-				UpdateTextColor();
-			}
-			else if (e.PropertyName == Button.FontSizeProperty.PropertyName ||
-				e.PropertyName == Button.FontAttributesProperty.PropertyName)
-			{
-				UpdateFont();
-			}
-
-			base.OnElementPropertyChanged(sender, e);
-		}
-
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Internals
-
-		void UpdateText()
-		{
-			_componentText.UpdateText(Element.Text);
-		}
-
-		void UpdateTextColor()
-		{
-			_componentText.UpdateTextColor(Element.TextColor);
-		}
-
-		void UpdateFont()
-		{
-			_componentText.UpdateFont(Element);
-		}
-
-		#endregion
-	}
+    }
 }

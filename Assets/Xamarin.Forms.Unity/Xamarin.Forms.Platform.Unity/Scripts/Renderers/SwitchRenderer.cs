@@ -3,85 +3,60 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
 using UnityEngine;
-using UniRx;
+
 using System.ComponentModel;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class SwitchRenderer : ViewRenderer<Switch, UnityEngine.UI.Toggle>
-	{
-		/*-----------------------------------------------------------------*/
-		#region Field
+    public class SwitchRenderer : ViewRenderer<Switch, NativeSwitchElement>
+    {
+        public SwitchRenderer()
+        {
+            NativeElement.OnToggled += (sender, args) =>
+            {
+                Element.IsToggled = args;
+            };
+        }
 
-		#endregion
+        #region Event Handler
+        protected override void OnElementChanged(ElementChangedEventArgs<Switch> e)
+        {
+            base.OnElementChanged(e);
 
-		/*-----------------------------------------------------------------*/
-		#region MonoBehavior
+            if (e.NewElement == null)
+            {
+                return;
+            }
+            
+            UpdateToggle();
+            UpdateOnColor();
+        }
 
-		protected override void Awake()
-		{
-			base.Awake();
+        protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == Switch.IsToggledProperty.PropertyName)
+            {
+                UpdateToggle();
+            }
+            else if (e.PropertyName == Switch.OnColorProperty.PropertyName)
+            {
+                UpdateOnColor();
+            }
 
-			var swtch = Control;
-			if (swtch != null)
-			{
-				swtch.OnValueChangedAsObservable()
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						var elem = Element;
-						if (elem != null)
-						{
-							elem.IsToggled = value;
-						}
-					}).AddTo(swtch);
+            base.OnElementPropertyChanged(sender, e);
+        }
+        #endregion
 
-				var text = swtch.GetComponentInChildren<UnityEngine.UI.Text>();
-				if (text != null)
-				{
-					UnityEngine.Object.DestroyObject(text);
-				}
-			}
-		}
+        private void UpdateToggle()
+        {
+            NativeElement.IsToggled = Element.IsToggled;
+        }
 
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Event Handler
-
-		protected override void OnElementChanged(ElementChangedEventArgs<Switch> e)
-		{
-			base.OnElementChanged(e);
-
-			if (e.NewElement != null)
-			{
-				UpdateToggle();
-			}
-		}
-
-		protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == Switch.IsToggledProperty.PropertyName)
-			{
-				UpdateToggle();
-			}
-			base.OnElementPropertyChanged(sender, e);
-		}
-
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Internals
-
-		void UpdateToggle()
-		{
-			if (Control != null && Element != null)
-			{
-				Control.isOn = Element.IsToggled;
-			}
-		}
-
-		#endregion
-	}
+        private void UpdateOnColor()
+        {
+            NativeElement.OnColor = Element.OnColor.ToUnityColor();
+        }
+    }
 }

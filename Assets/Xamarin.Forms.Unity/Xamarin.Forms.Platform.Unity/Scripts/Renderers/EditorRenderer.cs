@@ -1,115 +1,101 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.ComponentModel;
-using UniRx;
+﻿using System.ComponentModel;
+
+using UnityEngine;
 
 namespace Xamarin.Forms.Platform.Unity
 {
-	public class EditorRenderer : ViewRenderer<Editor, UnityEngine.UI.InputField>
-	{
-		/*-----------------------------------------------------------------*/
-		#region Field
+    public class EditorRenderer : ViewRenderer<Editor, NativeEntryElement>
+    {
+        public EditorRenderer()
+        {
+            NativeElement.LineType = UnityEngine.UI.InputField.LineType.MultiLineNewline;
+            NativeElement.OnValueChanged += (sender, value) => Element.Text = value;
+        }
+        
+        protected override void OnElementChanged(ElementChangedEventArgs<Editor> e)
+        {
+            base.OnElementChanged(e);
 
-		TextTracker _componentText;
+            if (e.NewElement == null)
+            {
+                return;
+            }
 
-		#endregion
+            UpdateText();
+            UpdateTextColor();
+            UpdateFontSize();
+            UpdateFontFamily();
+            UpdateFontAttributes();
+            UpdatePlaceholder();
+            UpdatePlaceholderColor();
+        }
 
-		/*-----------------------------------------------------------------*/
-		#region MonoBehavior
+        protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == Editor.TextProperty.PropertyName)
+            {
+                UpdateText();
+            }
+            else if (e.PropertyName == Editor.TextColorProperty.PropertyName)
+            {
+                UpdateTextColor();
+            }
+            else if (e.PropertyName == Editor.FontSizeProperty.PropertyName ||
+                     e.PropertyName == Editor.FontFamilyProperty.PropertyName)
+            {
+                UpdateFontSize();
+                UpdateFontFamily();
+            }
+            else if(e.PropertyName == Editor.FontAttributesProperty.PropertyName)
+            {
+                UpdateFontAttributes();
+            }
+            else if (e.PropertyName == Editor.PlaceholderProperty.PropertyName)
+            {
+                UpdatePlaceholder();
+            }
+            else if (e.PropertyName == Editor.PlaceholderColorProperty.PropertyName)
+            {
+                UpdatePlaceholderColor();
+            }
 
-		protected override void Awake()
-		{
-			base.Awake();
+            base.OnElementPropertyChanged(sender, e);
+        }
 
-			var inputField = Control;
-			if (inputField != null)
-			{
-				inputField.lineType = UnityEngine.UI.InputField.LineType.MultiLineNewline;
-				inputField.OnValueChangedAsObservable()
-					.BlockReenter()
-					.Subscribe(value =>
-					{
-						var element = Element;
-						if (element != null)
-						{
-							element.Text = value;
-						}
-					}).AddTo(inputField);
+        private void UpdateText()
+        {
+            NativeElement.Text = Element.Text;
+        }
 
-				_componentText = new TextTracker(inputField.textComponent);
-			}
-		}
+        private void UpdateTextColor()
+        {
+            NativeElement.Foreground = Element.TextColor.ToUnityColor();
+        }
 
-		#endregion
 
-		/*-----------------------------------------------------------------*/
-		#region Event Handler
+        private void UpdateFontSize()
+        {
+            NativeElement.FontSize = Element.FontSize <= 0 ? (int)Device.GetNamedSize(NamedSize.Default, Element.GetType()) : (int)Element.FontSize;
+        }
 
-		protected override void OnElementChanged(ElementChangedEventArgs<Editor> e)
-		{
-			base.OnElementChanged(e);
+        private void UpdateFontAttributes()
+        {
+            NativeElement.FontStyle = Element.FontAttributes.ToUnityFontStyle();
+        }
 
-			if (e.NewElement != null)
-			{
-				base.OnElementChanged(e);
-
-				if (e.NewElement != null)
-				{
-					//_isInitiallyDefault = Element.IsDefault();
-
-					UpdateText();
-					UpdateTextColor();
-					UpdateFont();
-				}
-			}
-		}
-
-		protected override void OnElementPropertyChanged(object sender, PropertyChangedEventArgs e)
-		{
-			if (e.PropertyName == Editor.TextProperty.PropertyName)
-			{
-				UpdateText();
-			}
-			else if (e.PropertyName == Editor.TextColorProperty.PropertyName)
-			{
-				UpdateTextColor();
-			}
-			else if (e.PropertyName == Editor.FontSizeProperty.PropertyName ||
-				e.PropertyName == Editor.FontAttributesProperty.PropertyName)
-			{
-				UpdateFont();
-			}
-
-			base.OnElementPropertyChanged(sender, e);
-		}
-
-		#endregion
-
-		/*-----------------------------------------------------------------*/
-		#region Internals
-
-		void UpdateText()
-		{
-			var inputField = Control;
-			if (inputField != null)
-			{
-				inputField.text = Element.Text;
-			}
-		}
-
-		void UpdateTextColor()
-		{
-			_componentText.UpdateTextColor(Element.TextColor);
-		}
-
-		void UpdateFont()
-		{
-			_componentText.UpdateFont(Element);
-		}
-
-		#endregion
-	}
+        private void UpdateFontFamily()
+        {
+            NativeElement.Font = FontExtensions.ToUnityFont(Element.FontFamily, NativeElement.FontSize);
+        }
+        
+        private void UpdatePlaceholder()
+        {
+            NativeElement.Placeholder = Element.Placeholder;
+        }
+        
+        private void UpdatePlaceholderColor()
+        {
+            NativeElement.PlaceholderColor = Element.PlaceholderColor.ToUnityColor();
+        }
+    }
 }
