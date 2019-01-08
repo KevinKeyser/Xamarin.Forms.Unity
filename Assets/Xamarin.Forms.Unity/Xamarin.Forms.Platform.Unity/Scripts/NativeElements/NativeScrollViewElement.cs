@@ -59,7 +59,7 @@ namespace Xamarin.Forms.Platform.Unity
             viewportRectTransform.anchorMin = Vector2.zero;
             viewportRectTransform.anchorMax = Vector2.one;
             viewportRectTransform.pivot = new Vector2(0, 1);
-            viewportRectTransform.sizeDelta = new Vector2(-17, -17);
+            // viewportRectTransform.sizeDelta = new Vector2(-17, -17);
 
             // Image Options
             backgroundImage.sprite = null;
@@ -78,14 +78,14 @@ namespace Xamarin.Forms.Platform.Unity
             
             contentRectTransform.SetParent(viewportRectTransform, false);
             contentRectTransform.anchorMin = new Vector2(0, 1);
-            contentRectTransform.anchorMax = new Vector2(1, 1);
-            contentRectTransform.pivot = new Vector2(.5f, 1);
+            contentRectTransform.anchorMax = new Vector2(0, 1);
+            contentRectTransform.pivot = new Vector2(0, 1);
             contentRectTransform.sizeDelta = new Vector2(0, 300);
             #endregion Content
             #endregion Viewport
 
             #region Scrollbar Horizontal
-            var scrollbarHorizontal = new GameObject("Scrollbar Vertical",
+            var scrollbarHorizontal = new GameObject("Scrollbar Horizontal",
                                                      typeof(RectTransform),
                                                      typeof(CanvasRenderer),
                                                      typeof(UnityEngine.UI.Image),
@@ -96,8 +96,8 @@ namespace Xamarin.Forms.Platform.Unity
 
             var scrollbarHorizontalRectTransform = (RectTransform)scrollbarHorizontal.transform;
             scrollbarHorizontalRectTransform.SetParent(RectTransform, false);
-            scrollbarHorizontalRectTransform.anchorMin = new Vector2(0, 1);
-            scrollbarHorizontalRectTransform.anchorMax = Vector2.zero;
+            scrollbarHorizontalRectTransform.anchorMin = new Vector2(0, 0);
+            scrollbarHorizontalRectTransform.anchorMax = new Vector2(1, 0);
             scrollbarHorizontalRectTransform.pivot = new Vector2(0, 0);
             scrollbarHorizontalRectTransform.sizeDelta = new Vector2(-17, 20);
 
@@ -170,8 +170,8 @@ namespace Xamarin.Forms.Platform.Unity
             
             var scrollbarVerticalRectTransform = (RectTransform)scrollbarVertical.transform;
             scrollbarVerticalRectTransform.SetParent(RectTransform, false);
-            scrollbarVerticalRectTransform.anchorMin = new Vector2(0, 1);
-            scrollbarVerticalRectTransform.anchorMax = new Vector2(1, 0);
+            scrollbarVerticalRectTransform.anchorMin = new Vector2(1, 0);
+            scrollbarVerticalRectTransform.anchorMax = new Vector2(1, 1);
             scrollbarVerticalRectTransform.pivot = Vector2.one;
             scrollbarVerticalRectTransform.sizeDelta = new Vector2(20, -17);
 

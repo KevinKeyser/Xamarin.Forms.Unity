@@ -13,7 +13,7 @@ namespace Xamarin.Forms.Platform.Unity
         {
             NativeElement.OnScrollChanged += (sender, args) =>
             {
-                var x = (1.0 - args.x) * Element.ContentSize.Height;
+                var x = (1.0 - args.x) * Element.ContentSize.Width;
                 var y = (1.0 - args.y) * Element.ContentSize.Height;
                 Element.SetScrolledPosition(x, y);
             };
@@ -117,12 +117,6 @@ namespace Xamarin.Forms.Platform.Unity
             var size = Element.ContentSize;
             var x = Element.ScrollX;
             var y = Element.ScrollY;
-
-            var pivot = content.pivot;
-            content.anchorMin = new Vector2();
-            content.anchorMax = new Vector2();
-            content.anchoredPosition = new Vector2();
-            content.pivot = new Vector2();
 
             content.sizeDelta = new Vector2((float)size.Width, (float)size.Height);
             var w = 0.0f;
